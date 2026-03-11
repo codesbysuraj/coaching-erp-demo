@@ -17,6 +17,7 @@ async function main() {
       name: "Admin",
       email,
       passwordHash,
+      role: "SUPER_ADMIN",
     },
   });
 
