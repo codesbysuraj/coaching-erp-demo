@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Student {
+  id          Int        @id @default(autoincrement())
+  firstName   String
+  middleName  String?
+  lastName    String
+  gender      String?
+  dob         DateTime?
+  mobile      String
+  email       String?
+  aadharNo    String?
+  standard    String?
+  subjects    String?
+  course      String?
+  board       String?
+  photoUrl    String?
+  totalFees   Float?    // Total fees assigned for this student
+  targetExams String?   // Comma-separated: CET, JEE, NEET
+  createdAt   DateTime   @default(now())
+  deletedAt   DateTime?
+
+  address     Address?
+  academics   Academics?
+  parents     Parents?
+  admission   Admission?
+  fees        Fees[]
+  attendance  Attendance[]
+  testScores  TestScore[]
+}
+
+model Address {
+  id             Int     @id @default(autoincrement())
+  studentId      Int     @unique
+  flatNo         String?
+  building       String?
+  street         String?
+  landmark       String?
+  city           String?
+  pincode        String?
+  railwayStation String?
+  telNo          String?
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Academics {
+  id                       Int     @id @default(autoincrement())
+  studentId                Int     @unique
+  schoolName               String?
+  board                    String?
+  std                      String?
+  collegeName              String?
+  aggregateMarks           String?
+  aggregatePercentage      String?
+  mathsMarks               String?
+  scienceMarks             String?
+  previousInstitute        String?
+  examsAppeared            String?
+  examsQualified           String?
+  ltsseScore               String?
+  // Previous class marks/percentages
+  marks8th                 String?   // for 9th std students
+  marks9th                 String?   // for 10th std students
+  marks10th                String?   // for 11th & 12th std students
+  marks11th                String?   // for 12th std students only
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Parents {
+  id            Int     @id @default(autoincrement())
+  studentId     Int     @unique
+  fatherName    String?
+  motherName    String?
+  occupation    String?
+  fatherMobile  String?
+  motherMobile  String?
+  fatherEmail   String?
+  motherEmail   String?
+  fatherPan     String?
+  motherPan     String?
+  fatherAadhar  String?
+  motherAadhar  String?
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Admission {
+  id                Int      @id @default(autoincrement())
+  studentId         Int      @unique
+  center            String?
+  stream            String?
+  subjectGroup      String?
+  formNumber        String?
+  admissionDate     DateTime?
+  additionalSubject String?
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Fees {
+  id              Int      @id @default(autoincrement())
+  studentId       Int
+  grossFees       String?
+  concession      String?
+  totalPayable    String?
+  installmentNo   Int?
+  amountPaid      Float?   // Changed to Float for proper arithmetic
+  paymentDate     DateTime?
+  paymentMode     String?  // Cash | UPI | Cheque | NEFT | Card
+  bankName        String?
+  transactionId   String?
+  chequeNo        String?
+  receiptNo       String?
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  studentId Int
+  date      DateTime
+  subject   String   @default("General")
+  status    String
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, date, subject])
+}
+
+model TestScore {
+  id            Int      @id @default(autoincrement())
+  studentId     Int
+  subject       String
+  testName      String
+  maxMarks      Float
+  obtainedMarks Float
+  date          DateTime
+  createdAt     DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Admin {
+  id                  Int              @id @default(autoincrement())
+  name                String
+  email               String           @unique
+  passwordHash        String
+  role                String           @default("ADMIN")  // SUPER_ADMIN | ADMIN
+  createdAt           DateTime         @default(now())
+  passwordResetToken  String?
+  passwordResetExpiry DateTime?
+  loginLogs           AdminLoginLog[]
+}
+
+model AdminLoginLog {
+  id        Int      @id @default(autoincrement())
+  adminId   Int
+  email     String
+  name      String
+  ipAddress String?
+  userAgent String?
+  loggedInAt DateTime @default(now())
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}

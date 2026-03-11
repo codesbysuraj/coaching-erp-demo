@@ -1,0 +1,165 @@
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prisma = new PrismaClient() as any;
+
+// GET SINGLE STUDENT – uses raw SQL for new columns (totalFees) to bypass stale Prisma client
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const studentId = parseInt(id);
+
+    // Fetch student with all new columns via raw SQL
+    const students = await prisma.$queryRaw`
+      SELECT id, "firstName", "middleName", "lastName", gender, dob, mobile, email,
+             "aadharNo", standard, subjects, course, board, "photoUrl",
+             "totalFees", "targetExams", "createdAt", "deletedAt"
+      FROM "Student"
+      WHERE id = ${studentId}
+      LIMIT 1
+    `;
+
+    if (!students || students.length === 0) {
+      return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    }
+
+    const student = students[0];
+
+    // Fetch related data via Prisma (these tables haven't changed)
+    const [address, academics, parents, fees, attendance, testScores] = await Promise.all([
+      prisma.address.findUnique({ where: { studentId } }),
+      prisma.academics.findUnique({ where: { studentId } }),
+      prisma.parents.findUnique({ where: { studentId } }),
+      prisma.$queryRaw`
+        SELECT id, "studentId", "amountPaid", "paymentDate", "paymentMode",
+               "transactionId", "bankName", "chequeNo", "receiptNo", "installmentNo",
+               "grossFees", concession, "totalPayable"
+        FROM "Fees"
+        WHERE "studentId" = ${studentId}
+        ORDER BY id DESC
+      `,
+      prisma.attendance.findMany({ where: { studentId }, orderBy: { date: "desc" } }),
+      prisma.testScore.findMany({ where: { studentId }, orderBy: { date: "desc" } }),
+    ]);
+
+    return NextResponse.json({
+      ...student,
+      address: address || null,
+      academics: academics || null,
+      parents: parents || null,
+      fees: fees || [],
+      attendance: attendance || [],
+      testScores: testScores || [],
+    });
+  } catch (error) {
+    console.error("[GET /api/students/id]", error);
+    return NextResponse.json({ error: "Failed to fetch student" }, { status: 500 });
+  }
+}
+
+// UPDATE STUDENT
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await req.json();
+
+    // Update student core fields including new totalFees
+    await prisma.$executeRaw`
+      UPDATE "Student"
+      SET
+        "firstName" = ${body.firstName},
+        "middleName" = ${body.middleName || null},
+        "lastName" = ${body.lastName},
+        gender = ${body.gender || null},
+        dob = ${body.dob ? new Date(body.dob) : null},
+        mobile = ${body.mobile},
+        email = ${body.email || null},
+        "aadharNo" = ${body.aadharNo || null},
+        standard = ${body.standard || null},
+        subjects = ${body.subjects || null},
+        course = ${body.course || null},
+        board = ${body.board || null},
+        "photoUrl" = ${body.photoUrl || null},
+        "totalFees" = ${body.totalFees ? parseFloat(String(body.totalFees)) : null},
+        "targetExams" = ${body.targetExams || null}
+      WHERE id = ${parseInt(id)}
+    `;
+
+    // Upsert parents
+    const existingParents = await prisma.parents.findUnique({ where: { studentId: parseInt(id) } });
+    const parentsData = {
+      fatherName: body.fatherName || null,
+      motherName: body.motherName || null,
+      occupation: body.occupation || null,
+      fatherMobile: body.fatherMobile || null,
+      motherMobile: body.motherMobile || null,
+      fatherEmail: body.fatherEmail || null,
+      motherEmail: body.motherEmail || null,
+      fatherAadhar: body.fatherAadhar || null,
+      motherAadhar: body.motherAadhar || null,
+    };
+    if (existingParents) {
+      await prisma.parents.update({ where: { studentId: parseInt(id) }, data: parentsData });
+    } else {
+      await prisma.parents.create({ data: { studentId: parseInt(id), ...parentsData } });
+    }
+
+    // Upsert address
+    const existingAddr = await prisma.address.findUnique({ where: { studentId: parseInt(id) } });
+    const addrData = {
+      street: body.street || null, landmark: body.landmark || null,
+      city: body.city || null, pincode: body.pincode || null,
+    };
+    if (existingAddr) {
+      await prisma.address.update({ where: { studentId: parseInt(id) }, data: addrData });
+    } else {
+      await prisma.address.create({ data: { studentId: parseInt(id), ...addrData } });
+    }
+
+    // Upsert academics
+    const existingAcad = await prisma.academics.findUnique({ where: { studentId: parseInt(id) } });
+    const acadData = {
+      schoolName: body.schoolName || null,
+      collegeName: body.collegeName || null,
+      board: body.board || null,
+      marks8th: body.marks8th || null,
+      marks9th: body.marks9th || null,
+      marks10th: body.marks10th || null,
+      marks11th: body.marks11th || null,
+    };
+    if (existingAcad) {
+      await prisma.academics.update({ where: { studentId: parseInt(id) }, data: acadData });
+    } else {
+      await prisma.academics.create({ data: { studentId: parseInt(id), ...acadData } });
+    }
+
+    return NextResponse.json({ id: parseInt(id), ...body });
+  } catch (error) {
+    console.error("[PUT /api/students/id]", error);
+    return NextResponse.json({ error: "Failed to update student" }, { status: 500 });
+  }
+}
+
+// SOFT DELETE STUDENT
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    await prisma.$executeRaw`
+      UPDATE "Student" SET "deletedAt" = NOW() WHERE id = ${parseInt(id)}
+    `;
+    return NextResponse.json({ message: "Student moved to recycle bin" });
+  } catch (error) {
+    console.error("[DELETE /api/students/id]", error);
+    return NextResponse.json({ error: "Failed to delete student" }, { status: 500 });
+  }
+}
