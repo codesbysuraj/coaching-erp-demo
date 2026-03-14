@@ -78,10 +78,7 @@ export default function StudentsPage() {
   const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<FormTab>("student");
   const [formData, setFormData] = useState(emptyForm);
-  const [photoPreview, setPhotoPreview] = useState<string>("");
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { fetchStudents(); }, []);
 
@@ -130,37 +127,10 @@ export default function StudentsPage() {
     }));
   };
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(file.type)) {
-      showToast("Only JPEG, PNG, or WebP images allowed", "error"); return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      showToast("Photo must be under 5MB", "error"); return;
-    }
-    setPendingFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const uploadPhoto = async (studentId: number): Promise<string | null> => {
-    if (!pendingFile) return formData.photoUrl || null;
-    const fd = new FormData();
-    fd.append("file", pendingFile);
-    fd.append("studentId", studentId.toString());
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
-    if (!res.ok) { showToast("Photo upload failed", "error"); return null; }
-    const data = await res.json();
-    return data.photoUrl;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setUploadingPhoto(true);
+    setSubmitting(true);
     try {
-      // First create/update to get student ID, then upload photo
       const tempPayload = {
         ...formData,
         subjects: formData.subjects.length > 0 ? formData.subjects.join(",") : null,
@@ -182,21 +152,6 @@ export default function StudentsPage() {
 
       if (!res.ok) { showToast("Failed to save student", "error"); return; }
 
-      const savedStudent = await res.json();
-
-      // Upload photo if a new one was picked
-      if (pendingFile) {
-        const photoUrl = await uploadPhoto(savedStudent.id);
-        if (photoUrl) {
-          // Update the student with the photo URL
-          await fetch(`/api/students/${savedStudent.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...tempPayload, photoUrl }),
-          });
-        }
-      }
-
       fetchStudents();
       setIsModalOpen(false);
       resetForm();
@@ -204,7 +159,7 @@ export default function StudentsPage() {
     } catch {
       showToast("Failed to save student", "error");
     } finally {
-      setUploadingPhoto(false);
+      setSubmitting(false);
     }
   };
 
@@ -233,8 +188,6 @@ export default function StudentsPage() {
         ? (student as unknown as Record<string, string>).targetExams.split(",")
         : [],
     });
-    setPhotoPreview(student.photoUrl || "");
-    setPendingFile(null);
     setActiveTab("student");
     setIsModalOpen(true);
   };
@@ -254,8 +207,6 @@ export default function StudentsPage() {
     setFormData(emptyForm);
     setEditingStudent(null);
     setActiveTab("student");
-    setPhotoPreview("");
-    setPendingFile(null);
   };
 
   const HIGHER_STDS = ["11th", "11th & 12th", "12th"];
@@ -396,34 +347,21 @@ export default function StudentsPage() {
           {/* TAB 1: STUDENT */}
           {activeTab === "student" && (
             <>
-              {/* Photo Upload */}
-              <div className="flex flex-col items-center gap-3 pb-4 border-b border-gray-100">
-                <div className="relative group">
-                  {photoPreview ? (
-                    <div className="relative">
-                      <img src={photoPreview} alt="Preview"
-                        className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg" />
-                      <button type="button" onClick={() => { setPhotoPreview(""); setPendingFile(null); setFormData(p => ({ ...p, photoUrl: "" })); }}
-                        className="absolute -top-1 -right-1 bg-red-500 rounded-full p-1 text-white hover:bg-red-600 transition-colors">
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="w-24 h-24 rounded-full bg-blue-500 flex items-center justify-center border-4 border-white shadow-lg cursor-pointer"
-                      onClick={() => fileInputRef.current?.click()}>
-                      <Camera size={28} className="text-white" />
-                    </div>
-                  )}
-                </div>
-                <div className="text-center">
-                  <button type="button" onClick={() => fileInputRef.current?.click()}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                    {photoPreview ? "Change Photo" : "Upload Photo"}
-                  </button>
-                  <p className="text-xs text-gray-400 mt-0.5">JPEG, PNG or WebP • Max 5MB</p>
-                </div>
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp"
-                  onChange={handlePhotoSelect} className="hidden" />
+              {/* Photo URL */}
+              <div className="pb-4 mb-4 border-b border-gray-100">
+                <Input
+                  label="Photo URL"
+                  name="photoUrl"
+                  value={formData.photoUrl}
+                  onChange={handleInputChange}
+                  placeholder="https://res.cloudinary.com/..."
+                />
+                {formData.photoUrl && (
+                  <div className="mt-3 flex gap-4 items-center">
+                    <p className="text-sm font-medium text-gray-700">Preview:</p>
+                    <img src={formData.photoUrl} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -623,8 +561,8 @@ export default function StudentsPage() {
               </div>
               <div className="flex justify-between pt-4">
                 <Button type="button" variant="secondary" onClick={() => setActiveTab("parents")}>← Back</Button>
-                <Button type="submit" disabled={uploadingPhoto}>
-                  {uploadingPhoto ? "Saving..." : editingStudent ? "✓ Update Student" : "✓ Add Student"}
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? "Saving..." : editingStudent ? "✓ Update Student" : "✓ Add Student"}
                 </Button>
               </div>
             </>

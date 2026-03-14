@@ -7,7 +7,11 @@ async function main() {
   const email = "admin@kmeson.com";
   const existing = await prisma.admin.findUnique({ where: { email } });
   if (existing) {
-    console.log("Admin already exists, skipping seed.");
+    await prisma.admin.update({
+      where: { email },
+      data: { role: "SUPER_ADMIN" },
+    });
+    console.log("Admin already existed, role updated to SUPER_ADMIN.");
     return;
   }
 
