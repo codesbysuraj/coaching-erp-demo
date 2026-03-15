@@ -85,9 +85,15 @@ export default function StudentsPage() {
   const fetchStudents = async () => {
     try {
       const res = await fetch("/api/students");
-      setStudents(await res.json());
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setStudents(data);
+      } else {
+        setStudents([]);
+      }
     } catch {
       showToast("Failed to fetch students", "error");
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -213,11 +219,11 @@ export default function StudentsPage() {
   const isHigherStandard = HIGHER_STDS.includes(formData.standard);
   const isLowerStandard = ["9th", "9th & 10th", "10th"].includes(formData.standard);
 
-  const filteredStudents = students.filter((s) => {
+  const filteredStudents = (Array.isArray(students) ? students : []).filter((s) => {
     const matchesSearch =
-      s.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.mobile.includes(searchTerm);
+      s.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.mobile?.includes(searchTerm);
     return matchesSearch && (!filterStandard || s.standard === filterStandard);
   });
 
@@ -380,19 +386,23 @@ export default function StudentsPage() {
                 <Input label="Email" type="email" name="email" value={formData.email} onChange={handleInputChange} />
                 <Input label="Aadhar Number" name="aadharNo" value={formData.aadharNo} onChange={handleInputChange} />
                 <div>
-                  <label className={labelClass}>Board</label>
-                  <select name="board" value={formData.board} onChange={handleInputChange} className={selectClass}>
-                    <option value="">Select Board</option>
-                    {BOARDS.map((b) => <option key={b}>{b}</option>)}
-                  </select>
-                </div>
-                <div>
                   <label className={labelClass}>Class / Standard</label>
                   <select name="standard" value={formData.standard} onChange={handleStandardChange} className={selectClass}>
                     <option value="">Select Class</option>
                     {STANDARDS.map((s) => <option key={s}>{s}</option>)}
                   </select>
                 </div>
+                {formData.standard && (
+                  <div>
+                    <label className={labelClass}>Board</label>
+                    <select name="board" value={formData.board} onChange={handleInputChange} className={selectClass}>
+                      <option value="">Select Board</option>
+                      {isHigherStandard 
+                        ? ["CBSE", "HSC", "ICSE"].map((b) => <option key={b} value={b}>{b}</option>)
+                        : BOARDS.map((b) => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                )}
                 {isHigherStandard && (
                   <div>
                     <label className={labelClass}>Course</label>
