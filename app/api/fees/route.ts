@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const prisma = new PrismaClient() as any;
+const db = prisma as any;
 
 // GET ALL FEES
 export async function GET(req: Request) {
@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const studentId = searchParams.get("studentId");
 
     const fees = studentId
-      ? await prisma.$queryRaw`
+      ? await db.$queryRaw`
           SELECT f.id, f."studentId", f."amountPaid", f."paymentDate", f."paymentMode",
                  f."transactionId", f."bankName", f."chequeNo", f."receiptNo", f."installmentNo",
                  f."grossFees", f.concession, f."totalPayable",
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
           WHERE f."studentId" = ${parseInt(studentId)}
           ORDER BY f.id DESC
         `
-      : await prisma.$queryRaw`
+      : await db.$queryRaw`
           SELECT f.id, f."studentId", f."amountPaid", f."paymentDate", f."paymentMode",
                  f."transactionId", f."bankName", f."chequeNo", f."receiptNo", f."installmentNo",
                  f."grossFees", f.concession, f."totalPayable",
@@ -75,15 +75,15 @@ export async function POST(req: Request) {
     if (!finalReceiptNo) {
       const yearStr = new Date().getFullYear().toString().slice(-2);
       // Get count of fees created this year to generate sequential number
-      const countResult: any = await prisma.$queryRaw`
+      const countResult: any = await db.$queryRaw`
         SELECT COUNT(*) as count FROM "Fees"
-        WHERE EXTRACT(YEAR FROM "createdAt") = EXTRACT(YEAR FROM CURRENT_DATE)
+        WHERE EXTRACT(YEAR FROM COALESCE("paymentDate", CURRENT_DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
       `;
       const count = countResult[0]?.count ? Number(countResult[0].count) : 0;
       finalReceiptNo = `RCP-${yearStr}-${String(count + 1).padStart(4, "0")}`;
     }
 
-    const result = await prisma.$queryRaw`
+    const result = await db.$queryRaw`
       INSERT INTO "Fees" (
         "studentId", "amountPaid", "paymentDate", "paymentMode",
         "transactionId", "bankName", "chequeNo", "installmentNo", "receiptNo",
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
     const fee = result[0];
 
     // Fetch student for receipt printing
-    const students = await prisma.$queryRaw`
+    const students = await db.$queryRaw`
       SELECT id, "firstName", "middleName", "lastName", mobile, standard, "totalFees"
       FROM "Student" WHERE id = ${parseInt(body.studentId)} LIMIT 1
     `;
