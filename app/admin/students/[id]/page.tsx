@@ -92,7 +92,7 @@ function printReceipt(fee: any, student: any) {
       @media print { 
         body { padding:0; width: 100%; max-width: 100%; height: auto; }
         .footer { margin-top: 32px; }
-        @page { size: A5 landscape; margin: 10mm; }
+        @page { size: A5 portrait; margin: 10mm; }
       }
     </style></head>
     <body>
