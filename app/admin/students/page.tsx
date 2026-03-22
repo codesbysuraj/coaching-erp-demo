@@ -28,6 +28,36 @@ interface Student {
   course?: string;
   board?: string;
   photoUrl?: string;
+  targetExams?: string;
+  totalFees?: number;
+}
+
+interface StudentDetails extends Student {
+  address?: {
+    street?: string;
+    landmark?: string;
+    city?: string;
+    pincode?: string;
+  };
+  academics?: {
+    schoolName?: string;
+    collegeName?: string;
+    marks8th?: string;
+    marks9th?: string;
+    marks10th?: string;
+    marks11th?: string;
+  };
+  parents?: {
+    fatherName?: string;
+    motherName?: string;
+    occupation?: string;
+    fatherMobile?: string;
+    motherMobile?: string;
+    fatherEmail?: string;
+    motherEmail?: string;
+    fatherAadhar?: string;
+    motherAadhar?: string;
+  };
 }
 
 const STANDARDS = [
@@ -84,7 +114,7 @@ export default function StudentsPage() {
 
   const fetchStudents = async () => {
     try {
-      const res = await fetch("/api/students");
+      const res = await fetch("/api/students", { cache: "no-store" });
       const data = await res.json();
       if (Array.isArray(data)) {
         setStudents(data);
@@ -169,33 +199,58 @@ export default function StudentsPage() {
     }
   };
 
-  const handleEdit = (student: Student) => {
+  const handleEdit = async (student: Student) => {
     setEditingStudent(student);
-    setFormData({
-      ...emptyForm,
-      firstName: student.firstName,
-      middleName: student.middleName || "",
-      lastName: student.lastName,
-      gender: student.gender || "",
-      dob: student.dob ? new Date(student.dob).toISOString().split("T")[0] : "",
-      mobile: student.mobile,
-      email: student.email || "",
-      aadharNo: student.aadharNo || "",
-      standard: student.standard || "",
-      subjects: student.subjects ? student.subjects.split(",") : [],
-      course: student.course || "",
-      board: student.board || "",
-      photoUrl: student.photoUrl || "",
-      marks8th: (student as unknown as Record<string, string>).marks8th || "",
-      marks9th: (student as unknown as Record<string, string>).marks9th || "",
-      marks10th: (student as unknown as Record<string, string>).marks10th || "",
-      marks11th: (student as unknown as Record<string, string>).marks11th || "",
-      targetExams: (student as unknown as Record<string, string>).targetExams
-        ? (student as unknown as Record<string, string>).targetExams.split(",")
-        : [],
-    });
     setActiveTab("student");
     setIsModalOpen(true);
+
+    try {
+      const res = await fetch(`/api/students/${student.id}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load student details");
+
+      const details: StudentDetails = await res.json();
+      setFormData({
+        ...emptyForm,
+        firstName: details.firstName,
+        middleName: details.middleName || "",
+        lastName: details.lastName,
+        gender: details.gender || "",
+        dob: details.dob ? new Date(details.dob).toISOString().split("T")[0] : "",
+        mobile: details.mobile,
+        email: details.email || "",
+        aadharNo: details.aadharNo || "",
+        standard: details.standard || "",
+        subjects: details.subjects ? details.subjects.split(",") : [],
+        course: details.course || "",
+        board: details.board || "",
+        photoUrl: details.photoUrl || "",
+        targetExams: details.targetExams ? details.targetExams.split(",") : [],
+        totalFees: details.totalFees != null ? String(details.totalFees) : "",
+        fatherName: details.parents?.fatherName || "",
+        motherName: details.parents?.motherName || "",
+        occupation: details.parents?.occupation || "",
+        fatherMobile: details.parents?.fatherMobile || "",
+        motherMobile: details.parents?.motherMobile || "",
+        fatherEmail: details.parents?.fatherEmail || "",
+        motherEmail: details.parents?.motherEmail || "",
+        fatherAadhar: details.parents?.fatherAadhar || "",
+        motherAadhar: details.parents?.motherAadhar || "",
+        street: details.address?.street || "",
+        landmark: details.address?.landmark || "",
+        city: details.address?.city || "",
+        pincode: details.address?.pincode || "",
+        schoolName: details.academics?.schoolName || "",
+        collegeName: details.academics?.collegeName || "",
+        marks8th: details.academics?.marks8th || "",
+        marks9th: details.academics?.marks9th || "",
+        marks10th: details.academics?.marks10th || "",
+        marks11th: details.academics?.marks11th || "",
+      });
+    } catch {
+      showToast("Failed to load student details for edit", "error");
+      setIsModalOpen(false);
+      setEditingStudent(null);
+    }
   };
 
   const handleDeleteConfirm = async () => {
