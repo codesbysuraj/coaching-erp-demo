@@ -592,13 +592,10 @@ export default function StudentsPage() {
             <>
               <div className="space-y-4">
                 <div className="p-4 bg-green-50 rounded-xl border border-green-100">
-                  <h3 className="text-sm font-semibold text-green-800 mb-3">School / College</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <h3 className="text-sm font-semibold text-green-800 mb-3">School/College</h3>
+                  <div className="grid grid-cols-1 gap-3">
                     {(!formData.standard || isLowerStandard || !isHigherStandard) && (
-                      <Input label="School Name" name="schoolName" value={formData.schoolName} onChange={handleInputChange} />
-                    )}
-                    {(!formData.standard || isHigherStandard || !isLowerStandard) && (
-                      <Input label="College / Previous Institute" name="collegeName" value={formData.collegeName} onChange={handleInputChange} />
+                      <Input label="School / College Name" name="schoolName" value={formData.schoolName} onChange={handleInputChange} />
                     )}
                   </div>
                 </div>
@@ -617,7 +614,7 @@ export default function StudentsPage() {
                 <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-100">
                   <h3 className="text-sm font-semibold text-yellow-800 mb-3">Address</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Input label="Street / Area" name="street" value={formData.street} onChange={handleInputChange} />
+                    <Input label="Address Line 1" name="street" value={formData.street} onChange={handleInputChange} />
                     <Input label="Landmark" name="landmark" value={formData.landmark} onChange={handleInputChange} />
                     <Input label="City" name="city" value={formData.city} onChange={handleInputChange} />
                     <Input label="Pincode" name="pincode" value={formData.pincode} onChange={handleInputChange} />
