@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const prisma = new PrismaClient() as any;
+import { prisma } from "@/lib/prisma";
 
 // GET ALL STUDENTS – raw SQL for new totalFees column
 export async function GET(req: Request) {
@@ -39,7 +36,14 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     // Insert student
-    const result = await prisma.$queryRaw`
+    const result = await prisma.$queryRaw<Array<{
+      id: number;
+      firstName: string;
+      lastName: string;
+      standard: string | null;
+      totalFees: number | null;
+      targetExams: string | null;
+    }>>`
       INSERT INTO "Student" (
         "firstName", "middleName", "lastName", gender, dob, mobile, email,
         "aadharNo", standard, subjects, course, board, "photoUrl", "totalFees", "targetExams", "createdAt"

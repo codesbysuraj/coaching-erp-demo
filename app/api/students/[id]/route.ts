@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const prisma = new PrismaClient() as any;
+import { prisma } from "@/lib/prisma";
 
 // GET SINGLE STUDENT – uses raw SQL for new columns (totalFees) to bypass stale Prisma client
 export async function GET(
@@ -14,7 +11,26 @@ export async function GET(
     const studentId = parseInt(id);
 
     // Fetch student with all new columns via raw SQL
-    const students = await prisma.$queryRaw`
+    const students = await prisma.$queryRaw<Array<{
+      id: number;
+      firstName: string;
+      middleName: string | null;
+      lastName: string;
+      gender: string | null;
+      dob: Date | null;
+      mobile: string;
+      email: string | null;
+      aadharNo: string | null;
+      standard: string | null;
+      subjects: string | null;
+      course: string | null;
+      board: string | null;
+      photoUrl: string | null;
+      totalFees: number | null;
+      targetExams: string | null;
+      createdAt: Date;
+      deletedAt: Date | null;
+    }>>`
       SELECT id, "firstName", "middleName", "lastName", gender, dob, mobile, email,
              "aadharNo", standard, subjects, course, board, "photoUrl",
              "totalFees", "targetExams", "createdAt", "deletedAt"
