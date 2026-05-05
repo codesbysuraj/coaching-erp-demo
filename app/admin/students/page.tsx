@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Edit, Trash2, Eye, User, Users, BookOpen, Camera, X } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, User, Users, BookOpen, Upload } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -72,8 +73,9 @@ const SUBJECTS_SCIENCE = ["Physics", "Chemistry", "Mathematics", "IT", "CS", "Bi
 const SUBJECTS_COMMERCE = ["Accountancy", "Economics", "Business Studies", "Mathematics", "IT", "SP", "English"];
 const COURSES = ["Science", "Commerce", "Arts"];
 const BOARDS = ["CBSE", "SSC", "ICSE"];
-const EXAMS_SCIENCE = ["CET", "JEE", "NEET"];
+const EXAMS_SCIENCE = ["CET", "JEE", "NEET", "NDA"];
 const EXAMS_COMMERCE = ["CA Foundation", "CS Executive", "CMA", "Banking", "CUET"];
+const STUDENTS_PER_PAGE = 20;
 
 const emptyForm = {
   firstName: "", middleName: "", lastName: "",
@@ -106,18 +108,26 @@ export default function StudentsPage() {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [importingCsv, setImportingCsv] = useState(false);
   const [activeTab, setActiveTab] = useState<FormTab>("student");
   const [formData, setFormData] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+  const deferredSearchTerm = useDeferredValue(searchTerm);
 
-  useEffect(() => { fetchStudents(); }, []);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStandard]);
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     try {
       const res = await fetch("/api/students", { cache: "no-store" });
       const data = await res.json();
       if (Array.isArray(data)) {
-        setStudents(data);
+        startTransition(() => {
+          setStudents(data);
+        });
       } else {
         setStudents([]);
       }
@@ -127,7 +137,9 @@ export default function StudentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
+
+  useEffect(() => { fetchStudents(); }, [fetchStudents]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -264,6 +276,47 @@ export default function StudentsPage() {
     finally { setDeleting(false); setDeleteTarget(null); }
   };
 
+  const handleCsvImport = async (file: File | null) => {
+    if (!file) return;
+
+    setImportingCsv(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/students/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || "Failed to import CSV", "error");
+        return;
+      }
+
+      await fetchStudents();
+
+      const importedCount = data.imported || 0;
+      const skippedCount = data.skipped || 0;
+      if (skippedCount > 0) {
+        const firstIssue = Array.isArray(data.issues) && data.issues.length > 0
+          ? ` First issue: row ${data.issues[0].row} - ${data.issues[0].message}`
+          : "";
+        showToast(`Imported ${importedCount} students, skipped ${skippedCount} rows.${firstIssue}`, "warning");
+      } else {
+        showToast(`Imported ${importedCount} students successfully`, "success");
+      }
+    } catch {
+      showToast("Failed to import CSV", "error");
+    } finally {
+      setImportingCsv(false);
+      if (csvInputRef.current) {
+        csvInputRef.current.value = "";
+      }
+    }
+  };
+
   const resetForm = () => {
     setFormData(emptyForm);
     setEditingStudent(null);
@@ -272,15 +325,32 @@ export default function StudentsPage() {
 
   const HIGHER_STDS = ["11th", "11th & 12th", "12th"];
   const isHigherStandard = HIGHER_STDS.includes(formData.standard);
-  const isLowerStandard = ["9th", "9th & 10th", "10th"].includes(formData.standard);
+  const filteredStudents = useMemo(() => {
+    const query = deferredSearchTerm.trim().toLowerCase();
 
-  const filteredStudents = (Array.isArray(students) ? students : []).filter((s) => {
-    const matchesSearch =
-      s.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.mobile?.includes(searchTerm);
-    return matchesSearch && (!filterStandard || s.standard === filterStandard);
-  });
+    return (Array.isArray(students) ? students : []).filter((s) => {
+      const matchesSearch =
+        !query ||
+        s.firstName?.toLowerCase().includes(query) ||
+        s.lastName?.toLowerCase().includes(query) ||
+        s.mobile?.includes(query);
+      return matchesSearch && (!filterStandard || s.standard === filterStandard);
+    });
+  }, [students, deferredSearchTerm, filterStandard]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / STUDENTS_PER_PAGE));
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
+  const pagedStudents = useMemo(() => {
+    const startIndex = (currentPage - 1) * STUDENTS_PER_PAGE;
+    return filteredStudents.slice(startIndex, startIndex + STUDENTS_PER_PAGE);
+  }, [currentPage, filteredStudents]);
+
+  const startIndex = filteredStudents.length === 0 ? 0 : (currentPage - 1) * STUDENTS_PER_PAGE + 1;
+  const endIndex = Math.min(currentPage * STUDENTS_PER_PAGE, filteredStudents.length);
 
   if (loading) return <div className="flex items-center justify-center h-full"><Loader size="lg" /></div>;
 
@@ -304,10 +374,30 @@ export default function StudentsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Students Management</h1>
           <p className="text-gray-500 mt-1">Add, edit, and manage student records</p>
         </div>
-        <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
-          <Plus size={20} className="mr-2" /> Add Student
-        </Button>
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => csvInputRef.current?.click()}
+              disabled={importingCsv}
+            >
+              <Upload size={18} className="mr-2" />
+              {importingCsv ? "Importing..." : "Import CSV"}
+            </Button>
+            <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
+              <Plus size={20} className="mr-2" /> Add Student
+            </Button>
+          </div>
+        </div>
       </div>
+
+      <input
+        ref={csvInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={(e) => handleCsvImport(e.target.files?.[0] || null)}
+      />
 
       <Card>
         <CardHeader>
@@ -340,13 +430,26 @@ export default function StudentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStudents.length > 0 ? filteredStudents.map((student) => (
-                <TableRow key={student.id} className="hover:bg-gray-50 cursor-pointer">
+              {pagedStudents.length > 0 ? pagedStudents.map((student) => (
+                <TableRow
+                  key={student.id}
+                  className="hover:bg-gray-50 cursor-pointer [content-visibility:auto] [contain-intrinsic-size:56px]"
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       {student.photoUrl ? (
-                        <img src={student.photoUrl} alt={student.firstName}
-                          className="w-9 h-9 rounded-full object-cover border-2 border-gray-200" />
+                        <Image
+                          src={student.photoUrl}
+                          alt={`${student.firstName} ${student.lastName}`.trim()}
+                          width={36}
+                          height={36}
+                          loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
+                          quality={45}
+                          sizes="36px"
+                          className="w-9 h-9 rounded-full object-cover border-2 border-gray-200"
+                        />
                       ) : (
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold border-2 border-white shadow-sm">
                           {getInitials(student)}
@@ -386,6 +489,36 @@ export default function StudentsPage() {
               )}
             </TableBody>
           </Table>
+          {filteredStudents.length > STUDENTS_PER_PAGE && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 bg-gray-50">
+              <p className="text-sm text-gray-600">
+                Showing {startIndex}-{endIndex} of {filteredStudents.length} students
+              </p>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-gray-600 px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -420,7 +553,18 @@ export default function StudentsPage() {
                 {formData.photoUrl && (
                   <div className="mt-3 flex gap-4 items-center">
                     <p className="text-sm font-medium text-gray-700">Preview:</p>
-                    <img src={formData.photoUrl} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" />
+                    <Image
+                      src={formData.photoUrl}
+                      alt="Preview"
+                      width={64}
+                      height={64}
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
+                      quality={45}
+                      sizes="64px"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                    />
                   </div>
                 )}
               </div>
@@ -594,9 +738,13 @@ export default function StudentsPage() {
                 <div className="p-4 bg-green-50 rounded-xl border border-green-100">
                   <h3 className="text-sm font-semibold text-green-800 mb-3">School/College</h3>
                   <div className="grid grid-cols-1 gap-3">
-                    {(!formData.standard || isLowerStandard || !isHigherStandard) && (
-                      <Input label="School / College Name" name="schoolName" value={formData.schoolName} onChange={handleInputChange} />
-                    )}
+                      <Input
+                        label={isHigherStandard ? "College Name" : "School Name"}
+                        name={isHigherStandard ? "collegeName" : "schoolName"}
+                        value={isHigherStandard ? formData.collegeName : formData.schoolName}
+                        onChange={handleInputChange}
+                        placeholder={isHigherStandard ? "Enter college name" : "Enter school name"}
+                      />
                   </div>
                 </div>
                 {/* Total Fees */}

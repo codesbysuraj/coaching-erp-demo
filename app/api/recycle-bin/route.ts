@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 
 // GET ALL DELETED STUDENTS (Recycle Bin)
 export async function GET() {
   try {
-    const deletedStudents = await prisma.student.findMany({
+    const deletedStudents = await withRetry(() => prisma.student.findMany({
       where: {
         deletedAt: { not: null },
       },
       orderBy: { deletedAt: "desc" },
-    });
+    }));
 
     return NextResponse.json(deletedStudents);
   } catch (error) {
@@ -23,10 +23,10 @@ export async function PUT(req: Request) {
     const body = await req.json();
     const { studentId } = body;
 
-    const student = await prisma.student.update({
+    const student = await withRetry(() => prisma.student.update({
       where: { id: parseInt(studentId) },
       data: { deletedAt: null },
-    });
+    }));
 
     return NextResponse.json(student);
   } catch (error) {
@@ -45,9 +45,9 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Student ID required" }, { status: 400 });
     }
 
-    await prisma.student.delete({
+    await withRetry(() => prisma.student.delete({
       where: { id: parseInt(studentId) },
-    });
+    }));
 
     return NextResponse.json({ message: "Student permanently deleted" });
   } catch (error) {

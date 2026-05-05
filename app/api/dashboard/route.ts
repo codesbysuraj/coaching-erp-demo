@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 
 // GET DASHBOARD STATISTICS
 export async function GET() {
   try {
-    const totalStudents = await prisma.student.count();
+    const totalStudents = await withRetry(() => prisma.student.count());
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const attendanceToday = await prisma.attendance.findMany({
+    const attendanceToday = await withRetry(() => prisma.attendance.findMany({
       where: {
         date: today,
       },
-    });
+    }));
     
     const presentCount = attendanceToday.filter(a => a.status === "Present").length;
     const attendancePercentage = attendanceToday.length > 0 
@@ -22,12 +22,12 @@ export async function GET() {
 
     // Calculate total pending fees: Sum(student.totalFees) - Sum(fee.amountPaid)
     // Using raw SQL to bypass the Prisma client DLL lock issue on Windows for the new columns
-    const sumFeesResult: any = await prisma.$queryRaw`
+    const sumFeesResult = await withRetry(() => prisma.$queryRaw<Array<{ totalFeesSum: number | null }>>`
       SELECT SUM("totalFees") as "totalFeesSum" FROM "Student" WHERE "deletedAt" IS NULL
-    `;
-    const sumPaidResult: any = await prisma.$queryRaw`
+    `);
+    const sumPaidResult = await withRetry(() => prisma.$queryRaw<Array<{ amountPaidSum: number | null }>>`
       SELECT SUM("amountPaid") as "amountPaidSum" FROM "Fees"
-    `;
+    `);
     const totalAssigned = sumFeesResult[0]?.totalFeesSum ? Number(sumFeesResult[0].totalFeesSum) : 0;
     const totalCollected = sumPaidResult[0]?.amountPaidSum ? Number(sumPaidResult[0].amountPaidSum) : 0;
     const pendingFees = Math.max(0, totalAssigned - totalCollected);
@@ -35,7 +35,7 @@ export async function GET() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
-    const recentAdmissions = await prisma.student.findMany({
+    const recentAdmissions = await withRetry(() => prisma.student.findMany({
       where: {
         createdAt: {
           gte: thirtyDaysAgo,
@@ -45,7 +45,7 @@ export async function GET() {
         createdAt: "desc",
       },
       take: 5,
-    });
+    }));
 
     return NextResponse.json({
       totalStudents,

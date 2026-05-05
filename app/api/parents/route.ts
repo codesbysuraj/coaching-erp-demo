@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 
 // GET PARENTS
 export async function GET(req: Request) {
@@ -8,22 +8,22 @@ export async function GET(req: Request) {
     const studentId = searchParams.get("studentId");
 
     if (studentId) {
-      const parents = await prisma.parents.findUnique({
+      const parents = await withRetry(() => prisma.parents.findUnique({
         where: {
           studentId: parseInt(studentId),
         },
         include: {
           student: true,
         },
-      });
+      }));
       return NextResponse.json(parents);
     }
 
-    const parents = await prisma.parents.findMany({
+    const parents = await withRetry(() => prisma.parents.findMany({
       include: {
         student: true,
       },
-    });
+    }));
 
     return NextResponse.json(parents);
   } catch (error) {
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const parents = await prisma.parents.upsert({
+    const parents = await withRetry(() => prisma.parents.upsert({
       where: {
         studentId: parseInt(body.studentId),
       },
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         fatherAadhar: body.fatherAadhar || null,
         motherAadhar: body.motherAadhar || null,
       },
-    });
+    }));
 
     return NextResponse.json(parents);
   } catch (error) {

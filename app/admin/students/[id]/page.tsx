@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MapPin, GraduationCap,
@@ -220,9 +221,16 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
           {/* Photo */}
           <div className="flex-shrink-0">
             {student.photoUrl ? (
-              <img
+              <Image
                 src={student.photoUrl}
                 alt={fullName}
+                width={128}
+                height={128}
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+                quality={45}
+                sizes="(max-width: 768px) 112px, 128px"
                 className="w-28 h-28 md:w-32 md:h-32 rounded-2xl object-cover border-4 border-white/30 shadow-2xl"
               />
             ) : (

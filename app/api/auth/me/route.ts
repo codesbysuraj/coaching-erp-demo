@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 import { getAdminFromCookies } from "@/lib/auth";
 
 export async function GET() {
@@ -9,9 +9,9 @@ export async function GET() {
   }
 
   // Raw query to bypass stale client
-  const rows = await prisma.$queryRaw<{ id: number; name: string; email: string; role: string }[]>`
+  const rows = await withRetry(() => prisma.$queryRaw<{ id: number; name: string; email: string; role: string }[]>`
     SELECT id, name, email, role FROM "Admin" WHERE id = ${admin.id} LIMIT 1
-  `;
+  `);
 
   if (!rows || rows.length === 0) {
     return NextResponse.json({ error: "Admin not found" }, { status: 404 });

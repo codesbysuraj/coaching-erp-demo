@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 
 // GET ALL ATTENDANCE RECORDS
 export async function GET(req: Request) {
@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     const date = searchParams.get("date");
     const subject = searchParams.get("subject");
     
-    const where: any = {};
+    const where: { date?: Date; subject?: string } = {};
     if (date) {
       where.date = new Date(date);
     }
@@ -16,13 +16,13 @@ export async function GET(req: Request) {
       where.subject = subject;
     }
 
-    const attendance = await prisma.attendance.findMany({
+    const attendance = await withRetry(() => prisma.attendance.findMany({
       where,
       include: {
         student: true,
       },
       orderBy: { date: "desc" },
-    });
+    }));
 
     return NextResponse.json(attendance);
   } catch (error) {
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const { studentId, date, status, subject } = body;
     const subjectValue = subject || "General";
 
-    const attendance = await prisma.attendance.upsert({
+    const attendance = await withRetry(() => prisma.attendance.upsert({
       where: {
         studentId_date_subject: {
           studentId: parseInt(studentId),
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         subject: subjectValue,
         status,
       },
-    });
+    }));
 
     return NextResponse.json(attendance);
   } catch (error) {

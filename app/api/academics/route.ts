@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 
 // GET ACADEMICS
 export async function GET(req: Request) {
@@ -8,22 +8,22 @@ export async function GET(req: Request) {
     const studentId = searchParams.get("studentId");
 
     if (studentId) {
-      const academics = await prisma.academics.findUnique({
+      const academics = await withRetry(() => prisma.academics.findUnique({
         where: {
           studentId: parseInt(studentId),
         },
         include: {
           student: true,
         },
-      });
+      }));
       return NextResponse.json(academics);
     }
 
-    const academics = await prisma.academics.findMany({
+    const academics = await withRetry(() => prisma.academics.findMany({
       include: {
         student: true,
       },
-    });
+    }));
 
     return NextResponse.json(academics);
   } catch (error) {
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const academics = await prisma.academics.upsert({
+    const academics = await withRetry(() => prisma.academics.upsert({
       where: {
         studentId: parseInt(body.studentId),
       },
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
         examsQualified: body.examsQualified || null,
         ltsseScore: body.ltsseScore || null,
       },
-    });
+    }));
 
     return NextResponse.json(academics);
   } catch (error) {

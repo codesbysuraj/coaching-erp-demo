@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 
 // GET SINGLE STUDENT – uses raw SQL for new columns (totalFees) to bypass stale Prisma client
 export async function GET(
@@ -11,7 +11,7 @@ export async function GET(
     const studentId = parseInt(id);
 
     // Fetch student with all new columns via raw SQL
-    const students = await prisma.$queryRaw<Array<{
+    const students = await withRetry(() => prisma.$queryRaw<Array<{
       id: number;
       firstName: string;
       middleName: string | null;
@@ -37,7 +37,7 @@ export async function GET(
       FROM "Student"
       WHERE id = ${studentId}
       LIMIT 1
-    `;
+    `);
 
     if (!students || students.length === 0) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
@@ -47,19 +47,19 @@ export async function GET(
 
     // Fetch related data via Prisma (these tables haven't changed)
     const [address, academics, parents, fees, attendance, testScores] = await Promise.all([
-      prisma.address.findUnique({ where: { studentId } }),
-      prisma.academics.findUnique({ where: { studentId } }),
-      prisma.parents.findUnique({ where: { studentId } }),
-      prisma.$queryRaw`
+      withRetry(() => prisma.address.findUnique({ where: { studentId } })),
+      withRetry(() => prisma.academics.findUnique({ where: { studentId } })),
+      withRetry(() => prisma.parents.findUnique({ where: { studentId } })),
+      withRetry(() => prisma.$queryRaw`
         SELECT id, "studentId", "amountPaid", "paymentDate", "paymentMode",
                "transactionId", "bankName", "chequeNo", "receiptNo", "installmentNo",
                "grossFees", concession, "totalPayable"
         FROM "Fees"
         WHERE "studentId" = ${studentId}
         ORDER BY id DESC
-      `,
-      prisma.attendance.findMany({ where: { studentId }, orderBy: { date: "desc" } }),
-      prisma.testScore.findMany({ where: { studentId }, orderBy: { date: "desc" } }),
+      `),
+      withRetry(() => prisma.attendance.findMany({ where: { studentId }, orderBy: { date: "desc" } })),
+      withRetry(() => prisma.testScore.findMany({ where: { studentId }, orderBy: { date: "desc" } })),
     ]);
 
     return NextResponse.json({
@@ -87,7 +87,7 @@ export async function PUT(
     const body = await req.json();
 
     // Update student core fields including new totalFees
-    await prisma.$executeRaw`
+    await withRetry(() => prisma.$executeRaw`
       UPDATE "Student"
       SET
         "firstName" = ${body.firstName},
@@ -106,10 +106,10 @@ export async function PUT(
         "totalFees" = ${body.totalFees ? parseFloat(String(body.totalFees)) : null},
         "targetExams" = ${body.targetExams || null}
       WHERE id = ${parseInt(id)}
-    `;
+    `);
 
     // Upsert parents
-    const existingParents = await prisma.parents.findUnique({ where: { studentId: parseInt(id) } });
+    const existingParents = await withRetry(() => prisma.parents.findUnique({ where: { studentId: parseInt(id) } }));
     const parentsData = {
       fatherName: body.fatherName || null,
       motherName: body.motherName || null,
@@ -122,25 +122,25 @@ export async function PUT(
       motherAadhar: body.motherAadhar || null,
     };
     if (existingParents) {
-      await prisma.parents.update({ where: { studentId: parseInt(id) }, data: parentsData });
+      await withRetry(() => prisma.parents.update({ where: { studentId: parseInt(id) }, data: parentsData }));
     } else {
-      await prisma.parents.create({ data: { studentId: parseInt(id), ...parentsData } });
+      await withRetry(() => prisma.parents.create({ data: { studentId: parseInt(id), ...parentsData } }));
     }
 
     // Upsert address
-    const existingAddr = await prisma.address.findUnique({ where: { studentId: parseInt(id) } });
+    const existingAddr = await withRetry(() => prisma.address.findUnique({ where: { studentId: parseInt(id) } }));
     const addrData = {
       street: body.street || null, landmark: body.landmark || null,
       city: body.city || null, pincode: body.pincode || null,
     };
     if (existingAddr) {
-      await prisma.address.update({ where: { studentId: parseInt(id) }, data: addrData });
+      await withRetry(() => prisma.address.update({ where: { studentId: parseInt(id) }, data: addrData }));
     } else {
-      await prisma.address.create({ data: { studentId: parseInt(id), ...addrData } });
+      await withRetry(() => prisma.address.create({ data: { studentId: parseInt(id), ...addrData } }));
     }
 
     // Upsert academics
-    const existingAcad = await prisma.academics.findUnique({ where: { studentId: parseInt(id) } });
+    const existingAcad = await withRetry(() => prisma.academics.findUnique({ where: { studentId: parseInt(id) } }));
     const acadData = {
       schoolName: body.schoolName || null,
       collegeName: body.collegeName || null,
@@ -151,9 +151,9 @@ export async function PUT(
       marks11th: body.marks11th || null,
     };
     if (existingAcad) {
-      await prisma.academics.update({ where: { studentId: parseInt(id) }, data: acadData });
+      await withRetry(() => prisma.academics.update({ where: { studentId: parseInt(id) }, data: acadData }));
     } else {
-      await prisma.academics.create({ data: { studentId: parseInt(id), ...acadData } });
+      await withRetry(() => prisma.academics.create({ data: { studentId: parseInt(id), ...acadData } }));
     }
 
     return NextResponse.json({ id: parseInt(id), ...body });
@@ -170,9 +170,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await prisma.$executeRaw`
+    await withRetry(() => prisma.$executeRaw`
       UPDATE "Student" SET "deletedAt" = NOW() WHERE id = ${parseInt(id)}
-    `;
+    `);
     return NextResponse.json({ message: "Student moved to recycle bin" });
   } catch (error) {
     console.error("[DELETE /api/students/id]", error);

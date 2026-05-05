@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,25 +14,25 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
-    const rows = await prisma.$queryRaw<{ id: number }[]>`
+    const rows = await withRetry(() => prisma.$queryRaw<{ id: number }[]>`
       SELECT id FROM "Admin"
       WHERE "passwordResetToken" = ${token}
         AND "passwordResetExpiry" > ${now}
       LIMIT 1
-    `;
+    `);
 
     if (!rows || rows.length === 0) {
       return NextResponse.json({ error: "Invalid or expired reset token" }, { status: 400 });
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.$executeRaw`
+    await withRetry(() => prisma.$executeRaw`
       UPDATE "Admin"
       SET "passwordHash" = ${passwordHash},
           "passwordResetToken" = NULL,
           "passwordResetExpiry" = NULL
       WHERE id = ${rows[0].id}
-    `;
+    `);
 
     return NextResponse.json({ success: true, message: "Password reset successfully" });
   } catch (e) {

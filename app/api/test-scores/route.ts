@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 
 // GET TEST SCORES
 export async function GET(req: Request) {
@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     const studentId = searchParams.get("studentId");
     const subject = searchParams.get("subject");
 
-    const where: any = {};
+    const where: { studentId?: number; subject?: string } = {};
     if (studentId) {
       where.studentId = parseInt(studentId);
     }
@@ -16,13 +16,13 @@ export async function GET(req: Request) {
       where.subject = subject;
     }
 
-    const testScores = await prisma.testScore.findMany({
+    const testScores = await withRetry(() => prisma.testScore.findMany({
       where,
       include: {
         student: true,
       },
       orderBy: { date: "desc" },
-    });
+    }));
 
     return NextResponse.json(testScores);
   } catch (error) {
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const testScore = await prisma.testScore.create({
+    const testScore = await withRetry(() => prisma.testScore.create({
       data: {
         studentId: parseInt(body.studentId),
         subject: body.subject,
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
         obtainedMarks: parseFloat(body.obtainedMarks),
         date: new Date(body.date),
       },
-    });
+    }));
 
     return NextResponse.json(testScore);
   } catch (error) {

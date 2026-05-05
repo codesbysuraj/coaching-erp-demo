@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,9 +10,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    const rows = await prisma.$queryRaw<{ id: number }[]>`
+    const rows = await withRetry(() => prisma.$queryRaw<{ id: number }[]>`
       SELECT id FROM "Admin" WHERE email = ${email} LIMIT 1
-    `;
+    `);
 
     // Always return success to avoid email enumeration
     if (!rows || rows.length === 0) {
@@ -22,11 +22,11 @@ export async function POST(req: NextRequest) {
     const token = crypto.randomBytes(32).toString("hex");
     const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    await prisma.$executeRaw`
+    await withRetry(() => prisma.$executeRaw`
       UPDATE "Admin"
       SET "passwordResetToken" = ${token}, "passwordResetExpiry" = ${expiry}
       WHERE email = ${email}
-    `;
+    `);
 
     const resetLink = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/login/reset-password?token=${token}`;
 

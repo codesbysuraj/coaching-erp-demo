@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 import { getAdminFromCookies } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "New password must be at least 8 characters" }, { status: 400 });
     }
 
-    const rows = await prisma.$queryRaw<{ passwordHash: string }[]>`
+    const rows = await withRetry(() => prisma.$queryRaw<{ passwordHash: string }[]>`
       SELECT "passwordHash" FROM "Admin" WHERE id = ${admin.id} LIMIT 1
-    `;
+    `);
 
     if (!rows || rows.length === 0) {
       return NextResponse.json({ error: "Admin not found" }, { status: 404 });
@@ -33,9 +33,9 @@ export async function POST(req: NextRequest) {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.$executeRaw`
+    await withRetry(() => prisma.$executeRaw`
       UPDATE "Admin" SET "passwordHash" = ${passwordHash} WHERE id = ${admin.id}
-    `;
+    `);
 
     return NextResponse.json({ success: true, message: "Password changed successfully" });
   } catch (e) {

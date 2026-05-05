@@ -3,8 +3,10 @@ import { PrismaClient } from "@prisma/client";
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 function createPrismaClient() {
+  const shouldLogPrismaErrors = process.env.PRISMA_LOG_ERRORS === "true";
+
   return new PrismaClient({
-    log: ["error"],
+    log: shouldLogPrismaErrors ? ["error"] : [],
     datasources: {
       db: {
         url: process.env.DATABASE_URL,
@@ -28,7 +30,10 @@ export async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T
         msg.includes("terminating connection") ||
         msg.includes("Connection refused") ||
         msg.includes("ECONNRESET") ||
-        msg.includes("57P01");
+        msg.includes("57P01") ||
+        msg.includes("server closed the connection unexpectedly") ||
+        msg.includes("connection terminated") ||
+        msg.includes("P1017");
 
       if (isConnectionError && attempt < retries) {
         // Brief pause before retry

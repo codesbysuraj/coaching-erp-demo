@@ -1,8 +1,28 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = prisma as any;
+type FeeRow = {
+  id: number;
+  studentId: number;
+  amountPaid: number | null;
+  paymentDate: Date | null;
+  paymentMode: string | null;
+  transactionId: string | null;
+  bankName: string | null;
+  chequeNo: string | null;
+  receiptNo: string | null;
+  installmentNo: number | null;
+  grossFees: string | null;
+  concession: string | null;
+  totalPayable: string | null;
+  s_id: number;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  mobile: string;
+  standard: string | null;
+  totalFees: number | null;
+};
 
 // GET ALL FEES
 export async function GET(req: Request) {
@@ -11,7 +31,7 @@ export async function GET(req: Request) {
     const studentId = searchParams.get("studentId");
 
     const fees = studentId
-      ? await db.$queryRaw`
+      ? await withRetry(() => prisma.$queryRaw<FeeRow[]>`
           SELECT f.id, f."studentId", f."amountPaid", f."paymentDate", f."paymentMode",
                  f."transactionId", f."bankName", f."chequeNo", f."receiptNo", f."installmentNo",
                  f."grossFees", f.concession, f."totalPayable",
@@ -21,8 +41,8 @@ export async function GET(req: Request) {
           JOIN "Student" s ON s.id = f."studentId"
           WHERE f."studentId" = ${parseInt(studentId)}
           ORDER BY f.id DESC
-        `
-      : await db.$queryRaw`
+        `)
+      : await withRetry(() => prisma.$queryRaw<FeeRow[]>`
           SELECT f.id, f."studentId", f."amountPaid", f."paymentDate", f."paymentMode",
                  f."transactionId", f."bankName", f."chequeNo", f."receiptNo", f."installmentNo",
                  f."grossFees", f.concession, f."totalPayable",
@@ -31,7 +51,7 @@ export async function GET(req: Request) {
           FROM "Fees" f
           JOIN "Student" s ON s.id = f."studentId"
           ORDER BY f.id DESC
-        `;
+        `);
 
     // Reshape flat rows into nested {student: {...}} structure
     const shaped = (fees as Array<Record<string, unknown>>).map(row => ({
@@ -75,15 +95,25 @@ export async function POST(req: Request) {
     if (!finalReceiptNo) {
       const yearStr = new Date().getFullYear().toString().slice(-2);
       // Get count of fees created this year to generate sequential number
-      const countResult: any = await db.$queryRaw`
+      const countResult = await withRetry(() => prisma.$queryRaw<Array<{ count: bigint | number | string }>>`
         SELECT COUNT(*) as count FROM "Fees"
         WHERE EXTRACT(YEAR FROM COALESCE("paymentDate", CURRENT_DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
-      `;
+      `);
       const count = countResult[0]?.count ? Number(countResult[0].count) : 0;
       finalReceiptNo = `RCP-${yearStr}-${String(count + 1).padStart(4, "0")}`;
     }
 
-    const result = await db.$queryRaw`
+    const result = await withRetry(() => prisma.$queryRaw<Array<{
+      id: number;
+      studentId: number;
+      amountPaid: number | null;
+      paymentDate: Date | null;
+      paymentMode: string | null;
+      transactionId: string | null;
+      bankName: string | null;
+      receiptNo: string | null;
+      installmentNo: number | null;
+    }>>`
       INSERT INTO "Fees" (
         "studentId", "amountPaid", "paymentDate", "paymentMode",
         "transactionId", "bankName", "chequeNo", "installmentNo", "receiptNo",
@@ -104,15 +134,23 @@ export async function POST(req: Request) {
       )
       RETURNING id, "studentId", "amountPaid", "paymentDate", "paymentMode",
                 "transactionId", "bankName", "receiptNo", "installmentNo"
-    `;
+    `);
 
     const fee = result[0];
 
     // Fetch student for receipt printing
-    const students = await db.$queryRaw`
+    const students = await withRetry(() => prisma.$queryRaw<Array<{
+      id: number;
+      firstName: string;
+      middleName: string | null;
+      lastName: string;
+      mobile: string;
+      standard: string | null;
+      totalFees: number | null;
+    }>>`
       SELECT id, "firstName", "middleName", "lastName", mobile, standard, "totalFees"
       FROM "Student" WHERE id = ${parseInt(body.studentId)} LIMIT 1
-    `;
+    `);
 
     return NextResponse.json({ ...fee, student: students[0] || null });
   } catch (error) {
