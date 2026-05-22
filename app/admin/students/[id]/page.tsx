@@ -446,14 +446,14 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       </Card>
 
       {/* ── TEST SCORES ── */}
-      {student.testScores.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Award size={18} className="text-yellow-500" /> Test Scores
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Award size={18} className="text-yellow-500" /> Test Scores
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {student.testScores.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -482,9 +482,11 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                 })}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <p className="text-gray-400 text-sm text-center py-6">No test score records yet</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── FEES ── */}
       <Card>

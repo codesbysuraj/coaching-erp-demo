@@ -158,6 +158,7 @@ export default function FeesPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [balanceSearchTerm, setBalanceSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentSearch, setStudentSearch] = useState("");
@@ -235,6 +236,19 @@ export default function FeesPage() {
   const totalCollected = studentBalances.reduce((s, x) => s + x.paid, 0);
   const totalPending = totalAssigned - totalCollected;
 
+  const filteredStudentBalances = studentBalances.filter((student) => {
+    const query = balanceSearchTerm.trim().toLowerCase();
+    if (!query) return true;
+
+    const fullName = `${student.firstName} ${student.middleName || ""} ${student.lastName}`.toLowerCase();
+    return (
+      fullName.includes(query) ||
+      student.firstName.toLowerCase().includes(query) ||
+      student.lastName.toLowerCase().includes(query) ||
+      (student.standard || "").toLowerCase().includes(query)
+    );
+  });
+
   const filteredFees = fees.filter(f =>
     `${f.student.firstName} ${f.student.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (f.transactionId || "").toLowerCase().includes(searchTerm.toLowerCase())
@@ -289,9 +303,20 @@ export default function FeesPage() {
       {studentBalances.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Users size={17} className="text-blue-600" /> Student Fee Balances
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Users size={17} className="text-blue-600" /> Student Fee Balances
+              </CardTitle>
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <Input
+                  placeholder="Search student name..."
+                  value={balanceSearchTerm}
+                  onChange={(e) => setBalanceSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -306,7 +331,7 @@ export default function FeesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {studentBalances.map(s => (
+                {filteredStudentBalances.length > 0 ? filteredStudentBalances.map(s => (
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.firstName} {s.lastName}</TableCell>
                     <TableCell>{s.standard ? <Badge variant="info">{s.standard}</Badge> : "—"}</TableCell>
@@ -323,7 +348,13 @@ export default function FeesPage() {
                           : <Badge variant="danger">Unpaid</Badge>}
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-gray-400">
+                      No student fee balances found
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
