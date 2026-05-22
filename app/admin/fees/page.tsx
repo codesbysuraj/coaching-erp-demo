@@ -44,10 +44,18 @@ function generateReceiptNo() {
   return `RCP${Date.now().toString().slice(-8)}`; // Fallback, primarily handled by backend now
 }
 
-function printReceipt(fee: Fee) {
+function calculateReceiptBalance(fee: Fee, feeHistory: Fee[]) {
+  const totalPaidThroughReceipt = feeHistory
+    .filter((entry) => entry.studentId === fee.studentId && entry.id <= fee.id)
+    .reduce((sum, entry) => sum + (entry.amountPaid || 0), 0);
+
+  return Math.max(0, (fee.student.totalFees || 0) - totalPaidThroughReceipt);
+}
+
+function printReceipt(fee: Fee, feeHistory: Fee[]) {
   const student = fee.student;
   const fullName = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ");
-  const bal = (student.totalFees || 0) - (fee.amountPaid || 0);
+  const bal = calculateReceiptBalance(fee, feeHistory);
   const html = `
     <!DOCTYPE html><html><head><title>Payment Receipt</title>
     <style>
@@ -203,7 +211,7 @@ export default function FeesPage() {
       const newFee = await res.json();
       showToast("Payment recorded!", "success");
       // Auto-print receipt using the server-generated receiptNo
-      printReceipt({ ...newFee, student: selectedStudent! });
+      printReceipt({ ...newFee, student: selectedStudent! }, [...fees, { ...newFee, student: selectedStudent! }]);
       setIsModalOpen(false);
       resetForm();
       fetchFees();
@@ -366,7 +374,7 @@ export default function FeesPage() {
                   </TableCell>
                   <TableCell>
                     <button
-                      onClick={() => printReceipt(fee)}
+                      onClick={() => printReceipt(fee, fees)}
                       className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
                       title="Print / Download Receipt"
                     >

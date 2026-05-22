@@ -430,7 +430,7 @@ export default function StudentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pagedStudents.length > 0 ? pagedStudents.map((student) => (
+              {pagedStudents.length > 0 ? pagedStudents.map((student, index) => (
                 <TableRow
                   key={student.id}
                   className="hover:bg-gray-50 cursor-pointer [content-visibility:auto] [contain-intrinsic-size:56px]"
@@ -459,7 +459,7 @@ export default function StudentsPage() {
                         <p className="font-medium text-gray-900 text-sm">
                           {student.firstName} {student.middleName} {student.lastName}
                         </p>
-                        <p className="text-xs text-gray-400">#{student.id}</p>
+                        <p className="text-xs text-gray-400">#{filteredStudents.length - ((currentPage - 1) * STUDENTS_PER_PAGE + index)}</p>
                       </div>
                     </div>
                   </TableCell>

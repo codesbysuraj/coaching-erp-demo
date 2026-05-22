@@ -60,9 +60,12 @@ interface StudentDetails {
   }>;
 }
 
-function printReceipt(fee: any, student: any) {
+function printReceipt(fee: any, student: any, feeHistory: Array<{ id: number; studentId?: number; amountPaid?: string | number }>) {
   const fullName = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ");
-  const bal = (student.totalFees || 0) - (parseFloat(fee.amountPaid) || 0); // Quick estimate for balance
+  const totalPaidThroughReceipt = feeHistory
+    .filter((entry) => entry.studentId === student.id && entry.id <= fee.id)
+    .reduce((sum, entry) => sum + (parseFloat(String(entry.amountPaid || 0)) || 0), 0);
+  const bal = Math.max(0, (student.totalFees || 0) - totalPaidThroughReceipt);
   const html = `
     <!DOCTYPE html><html><head><title>Payment Receipt</title>
     <style>
@@ -532,7 +535,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                     </TableCell>
                     <TableCell>
                       <button
-                        onClick={() => printReceipt(fee, student)}
+                        onClick={() => printReceipt(fee, student, student.fees)}
                         className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50"
                       >
                         <Printer size={12} /> Print
