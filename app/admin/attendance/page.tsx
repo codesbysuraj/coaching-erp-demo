@@ -111,10 +111,22 @@ export default function AttendancePage() {
     }
   };
 
-  // Filter students by standard
+  // Filter students by standard and subject
   const filteredStudents = students.filter((student) => {
-    if (!filterStandard) return true;
-    return student.standard === filterStandard;
+    // Filter by standard
+    if (filterStandard && student.standard !== filterStandard) {
+      return false;
+    }
+    
+    // Filter by subject enrollment
+    if (selectedSubject && selectedSubject !== "General") {
+      // Check if student has this subject
+      if (!student.subjects) return false;
+      const studentSubjects = student.subjects.split(",").map((s) => s.trim());
+      return studentSubjects.includes(selectedSubject);
+    }
+    
+    return true;
   });
 
   const presentCount = Object.values(attendance).filter(

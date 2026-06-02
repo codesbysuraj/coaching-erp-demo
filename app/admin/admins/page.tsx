@@ -254,7 +254,7 @@ export default function AdminsPage() {
                   </div>
                 </div>
 
-                {/* Login Logs Expandable */}
+                {/* Login Logs Expandable */} 
                 {expandedAdmin === admin.id && (
                   <div className="bg-gray-50 border-t border-gray-100 px-6 py-3">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Login History</p>
