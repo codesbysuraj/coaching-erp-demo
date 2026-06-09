@@ -74,7 +74,10 @@ export default function AttendancePage() {
   };
 
   const toggleAttendance = (studentId: number, status: string) => {
-    setAttendance({ ...attendance, [studentId]: status });
+    setAttendance((prev) => ({
+      ...prev,
+      [studentId]: prev[studentId] === status ? "" : status,
+    }));
   };
 
   const markAllPresent = () => {
@@ -129,16 +132,11 @@ export default function AttendancePage() {
     return true;
   });
 
-  const presentCount = Object.values(attendance).filter(
-    (status) => status === "Present"
-  ).length;
-  const absentCount = Object.values(attendance).filter(
-    (status) => status === "Absent"
-  ).length;
-  const lateCount = Object.values(attendance).filter(
-    (status) => status === "Late"
-  ).length;
-  const totalMarked = Object.keys(attendance).length;
+  const attendanceValues = Object.values(attendance).filter(Boolean);
+  const presentCount = attendanceValues.filter((status) => status === "Present").length;
+  const absentCount = attendanceValues.filter((status) => status === "Absent").length;
+  const lateCount = attendanceValues.filter((status) => status === "Late").length;
+  const totalMarked = attendanceValues.length;
   const attendancePercentage = totalMarked > 0 
     ? (((presentCount + lateCount) / totalMarked) * 100).toFixed(1) 
     : "0";

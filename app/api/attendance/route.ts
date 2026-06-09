@@ -30,12 +30,25 @@ export async function GET(req: Request) {
   }
 }
 
-// CREATE/UPDATE ATTENDANCE
+// CREATE/UPDATE/DELETE ATTENDANCE
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { studentId, date, status, subject } = body;
     const subjectValue = subject || "General";
+    const trimmedStatus = typeof status === "string" ? status.trim() : "";
+
+    if (!trimmedStatus) {
+      await withRetry(() => prisma.attendance.deleteMany({
+        where: {
+          studentId: parseInt(studentId),
+          date: new Date(date),
+          subject: subjectValue,
+        },
+      }));
+
+      return NextResponse.json({ message: "Attendance cleared" });
+    }
 
     const attendance = await withRetry(() => prisma.attendance.upsert({
       where: {
@@ -46,13 +59,13 @@ export async function POST(req: Request) {
         },
       },
       update: {
-        status,
+        status: trimmedStatus,
       },
       create: {
         studentId: parseInt(studentId),
         date: new Date(date),
         subject: subjectValue,
-        status,
+        status: trimmedStatus,
       },
     }));
 
