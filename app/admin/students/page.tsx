@@ -434,6 +434,16 @@ export default function StudentsPage() {
                 <TableRow
                   key={student.id}
                   className="hover:bg-gray-50 cursor-pointer [content-visibility:auto] [contain-intrinsic-size:56px]"
+                  onClick={() => router.push(`/admin/students/${student.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(`/admin/students/${student.id}`);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Open profile for ${student.firstName} ${student.lastName}`}
                 >
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -469,9 +479,39 @@ export default function StudentsPage() {
                   <TableCell className="text-gray-600">{student.mobile}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => router.push(`/admin/students/${student.id}`)} title="View"><Eye size={16} /></Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleEdit(student)} title="Edit"><Edit size={16} /></Button>
-                      <Button size="sm" variant="danger" onClick={() => setDeleteTarget(student)} title="Delete"><Trash2 size={16} /></Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/admin/students/${student.id}`);
+                        }}
+                        title="View"
+                      >
+                        <Eye size={16} />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(student);
+                        }}
+                        title="Edit"
+                      >
+                        <Edit size={16} />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(student);
+                        }}
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

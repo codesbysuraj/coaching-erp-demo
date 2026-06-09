@@ -115,6 +115,7 @@ model Fees {
   chequeNo      String?
   receiptNo     String?
   student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@index([studentId])
 }
 
 model Attendance {
@@ -126,6 +127,8 @@ model Attendance {
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, date, subject])
+  @@index([studentId])
+  @@index([date])
 }
 
 model TestScore {
@@ -138,6 +141,8 @@ model TestScore {
   date          DateTime
   createdAt     DateTime @default(now())
   student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@index([studentId])
+  @@index([date])
 }
 
 model Admin {
@@ -161,4 +166,5 @@ model AdminLoginLog {
   userAgent  String?
   loggedInAt DateTime @default(now())
   admin      Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  @@index([adminId])
 }

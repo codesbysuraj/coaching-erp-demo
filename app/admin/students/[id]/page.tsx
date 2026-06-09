@@ -202,6 +202,8 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const attendancePct = totalAttendance > 0 ? Math.round(((presentCount + lateCount) / totalAttendance) * 100) : 0;
 
   const totalPaid = student.fees.reduce((sum, f) => sum + parseFloat(f.amountPaid || "0"), 0);
+  const totalFees = student.totalFees || 0;
+  const remainingFees = Math.max(0, totalFees - totalPaid);
 
   const subjectList = student.subjects ? student.subjects.split(",") : [];
 
@@ -288,14 +290,16 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
           {/* Quick Stats */}
           <div className="flex md:flex-col gap-3">
             <div className="text-center bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20">
-              <div className={`text-2xl font-bold ${attendancePct >= 75 ? "text-green-300" : "text-red-300"}`}>
-                {attendancePct}%
+              <div className="text-2xl font-bold text-white">
+                ₹{totalFees.toLocaleString("en-IN")}
               </div>
-              <div className="text-blue-200 text-xs mt-0.5">Attendance</div>
+              <div className="text-blue-200 text-xs mt-0.5">Total Fees</div>
             </div>
             <div className="text-center bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20">
-              <div className="text-2xl font-bold text-white">₹{totalPaid.toLocaleString("en-IN")}</div>
-              <div className="text-blue-200 text-xs mt-0.5">Fees Paid</div>
+              <div className={`text-2xl font-bold ${remainingFees > 0 ? "text-amber-200" : "text-green-300"}`}>
+                ₹{remainingFees.toLocaleString("en-IN")}
+              </div>
+              <div className="text-blue-200 text-xs mt-0.5">Remaining Fees</div>
             </div>
           </div>
         </div>
