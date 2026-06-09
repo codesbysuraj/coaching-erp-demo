@@ -34,6 +34,7 @@ export default function AttendancePage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [selectedSubject, setSelectedSubject] = useState("General");
   const [filterStandard, setFilterStandard] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -114,8 +115,20 @@ export default function AttendancePage() {
     }
   };
 
-  // Filter students by standard and subject
+  // Filter students by standard, subject, and search term
   const filteredStudents = students.filter((student) => {
+    const query = searchTerm.trim().toLowerCase();
+
+    if (query) {
+      const fullName = `${student.firstName} ${student.lastName}`.toLowerCase();
+      const mobile = student.mobile.toLowerCase();
+      const standard = (student.standard || "").toLowerCase();
+
+      if (!fullName.includes(query) && !mobile.includes(query) && !standard.includes(query)) {
+        return false;
+      }
+    }
+
     // Filter by standard
     if (filterStandard && student.standard !== filterStandard) {
       return false;
@@ -235,6 +248,13 @@ export default function AttendancePage() {
                   <option key={std} value={std}>{std}</option>
                 ))}
               </select>
+              <Input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search student name or mobile"
+                className="min-w-[240px]"
+              />
             </div>
           </div>
         </CardHeader>
