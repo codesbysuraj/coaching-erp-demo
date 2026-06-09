@@ -501,18 +501,22 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         </CardHeader>
         <CardContent>
           {/* Balance Summary */}
-          {student.totalFees && (
+          {student.totalFees != null && (
             <div className="grid grid-cols-3 gap-3 mb-4">
-              {[
-                { label: "Total Fees", value: student.totalFees, color: "blue" },
-                { label: "Paid", value: totalPaid, color: "green" },
-                { label: "Remaining", value: Math.max(0, student.totalFees - totalPaid), color: student.totalFees - totalPaid > 0 ? "red" : "green" },
-              ].map(({ label, value, color }) => (
-                <div key={label} className={`text-center p-3 rounded-xl bg-${color}-50 border border-${color}-100`}>
-                  <p className={`text-lg font-bold text-${color}-600`}>₹{value.toLocaleString("en-IN")}</p>
-                  <p className={`text-xs text-${color}-500 mt-0.5`}>{label}</p>
-                </div>
-              ))}
+              <div className="text-center p-3 rounded-xl bg-blue-50 border border-blue-100">
+                <p className="text-lg font-bold text-blue-600">₹{(student.totalFees || 0).toLocaleString("en-IN")}</p>
+                <p className="text-xs text-blue-500 mt-0.5">Total Fees</p>
+              </div>
+
+              <div className="text-center p-3 rounded-xl bg-green-50 border border-green-100">
+                <p className="text-lg font-bold text-green-600">₹{totalPaid.toLocaleString("en-IN")}</p>
+                <p className="text-xs text-green-500 mt-0.5">Paid</p>
+              </div>
+
+              <div className={`text-center p-3 rounded-xl ${student.totalFees - totalPaid > 0 ? "bg-red-50 border-red-100" : "bg-green-50 border-green-100"}`}>
+                <p className={`${student.totalFees - totalPaid > 0 ? "text-red-600" : "text-green-600"} text-lg font-bold`}>₹{Math.max(0, student.totalFees - totalPaid).toLocaleString("en-IN")}</p>
+                <p className={`${student.totalFees - totalPaid > 0 ? "text-red-500" : "text-green-500"} text-xs mt-0.5`}>Remaining</p>
+              </div>
             </div>
           )}
           {student.fees.length > 0 ? (

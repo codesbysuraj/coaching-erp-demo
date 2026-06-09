@@ -39,7 +39,7 @@ export const TableBody: React.FC<TableBodyProps> = ({ children }) => {
   );
 };
 
-interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
+interface TableRowProps extends React.ComponentPropsWithoutRef<'tr'> {
   children: React.ReactNode;
   className?: string;
 }
