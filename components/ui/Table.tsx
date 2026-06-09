@@ -39,14 +39,14 @@ export const TableBody: React.FC<TableBodyProps> = ({ children }) => {
   );
 };
 
-interface TableRowProps {
+interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
   children: React.ReactNode;
   className?: string;
 }
 
-export const TableRow: React.FC<TableRowProps> = ({ children, className = "" }) => {
+export const TableRow: React.FC<TableRowProps> = ({ children, className = "", ...rest }) => {
   return (
-    <tr className={`hover:bg-gray-50 ${className}`}>
+    <tr className={`hover:bg-gray-50 ${className}`} {...rest}>
       {children}
     </tr>
   );
