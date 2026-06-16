@@ -40,6 +40,8 @@ export default function TestScoresPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [studentSearchTerm, setStudentSearchTerm] = useState("");
+  const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
   const [formData, setFormData] = useState({
     studentId: "",
     subject: "",
@@ -80,8 +82,19 @@ export default function TestScoresPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleStudentSelect = (student: Student) => {
+    setFormData({ ...formData, studentId: student.id.toString() });
+    setStudentSearchTerm(`${student.firstName} ${student.lastName}${student.standard ? ` (${student.standard})` : ""}`);
+    setIsStudentDropdownOpen(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.studentId) {
+      showToast("Please select a student", "warning");
+      return;
+    }
 
     if (parseFloat(formData.obtainedMarks) > parseFloat(formData.maxMarks)) {
       showToast("Obtained marks cannot exceed max marks", "warning");
@@ -117,7 +130,20 @@ export default function TestScoresPage() {
       obtainedMarks: "",
       date: new Date().toISOString().split("T")[0],
     });
+    setStudentSearchTerm("");
+    setIsStudentDropdownOpen(false);
   };
+
+  const filteredStudents = students.filter((student) => {
+    const query = studentSearchTerm.trim().toLowerCase();
+    if (!query) return true;
+
+    const fullName = `${student.firstName} ${student.lastName}`.toLowerCase();
+    const standard = (student.standard || "").toLowerCase();
+    const studentId = student.id.toString();
+
+    return fullName.includes(query) || standard.includes(query) || studentId.includes(query);
+  });
 
   const filteredScores = testScores.filter((score) => {
     const matchesSearch =
@@ -291,22 +317,51 @@ export default function TestScoresPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select Student
+                Search Student
               </label>
-              <select
-                name="studentId"
-                value={formData.studentId}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Choose Student</option>
-                {students.map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.firstName} {student.lastName} {student.standard ? `(${student.standard})` : ""}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <Input
+                  type="text"
+                  value={studentSearchTerm}
+                  onChange={(e) => {
+                    setStudentSearchTerm(e.target.value);
+                    setIsStudentDropdownOpen(true);
+                    if (formData.studentId) {
+                      setFormData({ ...formData, studentId: "" });
+                    }
+                  }}
+                  onFocus={() => setIsStudentDropdownOpen(true)}
+                  onBlur={() => {
+                    window.setTimeout(() => setIsStudentDropdownOpen(false), 150);
+                  }}
+                  placeholder="Search by name, class, or ID"
+                  required
+                />
+                {isStudentDropdownOpen && filteredStudents.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                    {filteredStudents.map((student) => {
+                      const label = `${student.firstName} ${student.lastName}${student.standard ? ` (${student.standard})` : ""}`;
+                      return (
+                        <button
+                          key={student.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleStudentSelect(student)}
+                          className="w-full px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                        >
+                          <div className="font-medium text-gray-900">{label}</div>
+                          <div className="text-xs text-gray-500">ID: {student.id}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {isStudentDropdownOpen && studentSearchTerm.trim() && filteredStudents.length === 0 && (
+                  <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg">
+                    No students found
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
