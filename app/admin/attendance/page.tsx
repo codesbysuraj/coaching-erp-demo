@@ -50,7 +50,7 @@ export default function AttendancePage() {
     try {
       const response = await fetch("/api/students");
       const data = await response.json();
-      setStudents(data);
+      setStudents(Array.isArray(data) ? data : []);
     } catch (error) {
       showToast("Failed to fetch students", "error");
     } finally {
@@ -62,15 +62,21 @@ export default function AttendancePage() {
     try {
       const response = await fetch(`/api/attendance?date=${selectedDate}&subject=${selectedSubject}`);
       const data = await response.json();
-      
+
       const attendanceMap: Record<number, string> = {};
-      data.forEach((record: AttendanceRecord & { student: Student }) => {
-        attendanceMap[record.studentId] = record.status;
-      });
+      if (Array.isArray(data)) {
+        data.forEach((record: AttendanceRecord & { student: Student }) => {
+          attendanceMap[record.studentId] = record.status;
+        });
+      } else {
+        console.error("Unexpected attendance response:", data);
+        showToast("Failed to load attendance records", "error");
+      }
       
       setAttendance(attendanceMap);
     } catch (error) {
       console.error("Failed to fetch attendance:", error);
+      showToast("Failed to load attendance records", "error");
     }
   };
 

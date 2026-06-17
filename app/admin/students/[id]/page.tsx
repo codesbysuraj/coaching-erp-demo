@@ -5,8 +5,9 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MapPin, GraduationCap,
-  Users, Wallet, BookOpen, ClipboardCheck, User, Award, Printer
+  Users, Wallet, BookOpen, ClipboardCheck, User, Award, Printer, Download
 } from "lucide-react";
+import html2pdf from "html2pdf.js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -162,6 +163,385 @@ function printReceipt(fee: any, student: any, feeHistory: Array<{ id: number; st
   }
 }
 
+function formatCurrency(value?: number | string | null) {
+  const amount = typeof value === "number" ? value : parseFloat(String(value || 0));
+  return `₹${(Number.isFinite(amount) ? amount : 0).toLocaleString("en-IN")}`;
+}
+
+function createReportData(student: StudentDetails) {
+  const fullName = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ");
+  const initials = `${student.firstName?.[0] || ""}${student.lastName?.[0] || ""}`.toUpperCase();
+  const presentCount = student.attendance.filter((a) => a.status?.toUpperCase() === "PRESENT").length;
+  const lateCount = student.attendance.filter((a) => a.status?.toUpperCase() === "LATE").length;
+  const absentCount = Math.max(0, student.attendance.length - presentCount - lateCount);
+  const totalAttendance = student.attendance.length;
+  const attendancePct = totalAttendance > 0 ? Math.round(((presentCount + lateCount) / totalAttendance) * 100) : 0;
+  const totalPaid = student.fees.reduce((sum, fee) => sum + parseFloat(fee.amountPaid || "0"), 0);
+  const remainingFees = Math.max(0, (student.totalFees || 0) - totalPaid);
+  const subjectList = student.subjects ? student.subjects.split(",").map((subject) => subject.trim()).filter(Boolean) : [];
+  const examList = student.targetExams ? student.targetExams.split(",").map((exam) => exam.trim()).filter(Boolean) : [];
+
+  return {
+    fullName,
+    initials,
+    presentCount,
+    lateCount,
+    absentCount,
+    totalAttendance,
+    attendancePct,
+    totalPaid,
+    remainingFees,
+    subjectList,
+    examList,
+  };
+}
+
+function renderStudentReport(student: StudentDetails) {
+  const data = createReportData(student);
+  const reportDate = new Date().toLocaleDateString("en-IN", { dateStyle: "long" });
+  const latestAttendance = [...student.attendance].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const latestTestScores = [...student.testScores].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const latestFees = [...student.fees].sort((a, b) => {
+    const aTime = a.paymentDate ? new Date(a.paymentDate).getTime() : 0;
+    const bTime = b.paymentDate ? new Date(b.paymentDate).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  return `
+    <div class="report-page">
+      <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #0f172a; background: #f8fafc; }
+        .report-page { width: 100%; background: #fff; }
+        .report-shell { max-width: 1100px; margin: 0 auto; background: #fff; }
+        .hero { padding: 28px; background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 55%, #2563eb 100%); color: #fff; display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+        .identity { display: flex; gap: 18px; align-items: center; }
+        .avatar { width: 92px; height: 92px; border-radius: 22px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; }
+        .hero h1 { margin: 0; font-size: 30px; line-height: 1.1; }
+        .meta { margin-top: 10px; color: rgba(255,255,255,0.86); font-size: 14px; display: flex; flex-wrap: wrap; gap: 14px; }
+        .hero-note { text-align: right; font-size: 12px; color: rgba(255,255,255,0.82); }
+        .content { padding: 26px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+        .stat { border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); }
+        .stat .label { color: #64748b; font-size: 12px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+        .stat .value { font-size: 22px; font-weight: 800; color: #0f172a; }
+        .section { border: 1px solid #e2e8f0; border-radius: 18px; margin-bottom: 18px; overflow: hidden; }
+        .section h2 { margin: 0; padding: 16px 20px; font-size: 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .section-body { padding: 18px 20px; }
+        .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+        .info { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px dashed #e2e8f0; }
+        .info:last-child { border-bottom: 0; padding-bottom: 0; }
+        .info span:first-child { color: #64748b; font-size: 13px; }
+        .info span:last-child { font-weight: 700; text-align: right; }
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip { border-radius: 999px; padding: 7px 12px; font-size: 12px; font-weight: 700; background: #eff6ff; color: #1d4ed8; }
+        .chip.soft { background: #f8fafc; color: #334155; }
+        .table-wrap { overflow: hidden; border-radius: 14px; border: 1px solid #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: top; font-size: 12px; }
+        th { background: #f8fafc; color: #334155; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+        tr:last-child td { border-bottom: 0; }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #e2e8f0; color: #0f172a; }
+        .badge.success { background: #dcfce7; color: #166534; }
+        .badge.warning { background: #fef3c7; color: #92400e; }
+        .badge.danger { background: #fee2e2; color: #991b1b; }
+        .badge.info { background: #dbeafe; color: #1d4ed8; }
+        .footer { padding: 16px 26px 26px; color: #64748b; font-size: 12px; }
+        .page-break { page-break-before: always; }
+        @media print { body { background: #fff; } .report-shell { box-shadow: none; } .section, .stat, .table-wrap { break-inside: avoid; } @page { size: A4 portrait; margin: 12mm; } }
+        @media (max-width: 900px) { .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .info-grid { grid-template-columns: 1fr; } .hero { align-items: flex-start; } .hero-note { text-align: left; } }
+        @media (max-width: 640px) { .content { padding: 18px; } .hero { padding: 20px; } .summary-grid { grid-template-columns: 1fr; } .identity { align-items: flex-start; } .hero h1 { font-size: 24px; } }
+      </style>
+
+      <div class="report-shell">
+        <div class="hero">
+          <div class="identity">
+            <div class="avatar">${data.initials || "S"}</div>
+            <div>
+              <h1>${data.fullName}</h1>
+              <div class="meta">
+                <span>Student ID #${student.id}</span>
+                <span>Class ${student.standard || "—"}</span>
+                <span>Generated ${reportDate}</span>
+              </div>
+            </div>
+          </div>
+          <div class="hero-note">
+            <div><strong>K Meson Academy</strong></div>
+            <div>Official Student Report</div>
+          </div>
+        </div>
+
+        <div class="content">
+          <div class="summary-grid">
+            <div class="stat"><div class="label">Total Fees</div><div class="value">${formatCurrency(student.totalFees || 0)}</div></div>
+            <div class="stat"><div class="label">Paid</div><div class="value">${formatCurrency(data.totalPaid)}</div></div>
+            <div class="stat"><div class="label">Remaining</div><div class="value">${formatCurrency(data.remainingFees)}</div></div>
+            <div class="stat"><div class="label">Attendance</div><div class="value">${data.attendancePct}%</div></div>
+          </div>
+
+          <div class="section">
+            <h2>Student Details</h2>
+            <div class="section-body">
+              <div class="info-grid">
+                <div class="info"><span>Full Name</span><span>${data.fullName}</span></div>
+                <div class="info"><span>Mobile</span><span>${student.mobile || "—"}</span></div>
+                <div class="info"><span>Email</span><span>${student.email || "—"}</span></div>
+                <div class="info"><span>Date of Birth</span><span>${student.dob ? new Date(student.dob).toLocaleDateString("en-IN") : "—"}</span></div>
+                <div class="info"><span>Gender</span><span>${student.gender || "—"}</span></div>
+                <div class="info"><span>Aadhar No</span><span>${student.aadharNo || "—"}</span></div>
+                <div class="info"><span>Course</span><span>${student.course || "—"}</span></div>
+                <div class="info"><span>Board</span><span>${student.board || "—"}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Academic Information</h2>
+            <div class="section-body">
+              <div class="info-grid">
+                <div class="info"><span>School / Institute</span><span>${student.academics?.schoolName || student.academics?.collegeName || "—"}</span></div>
+                <div class="info"><span>Board</span><span>${student.academics?.board || student.board || "—"}</span></div>
+                <div class="info"><span>Aggregate %</span><span>${student.academics?.aggregatePercentage || "—"}</span></div>
+                <div class="info"><span>Target Exams</span><span>${data.examList.length > 0 ? data.examList.join(", ") : "—"}</span></div>
+              </div>
+              <div style="margin-top: 14px;">
+                <div style="color:#64748b; font-size:13px; margin-bottom:8px;">Subjects</div>
+                <div class="chips">
+                  ${data.subjectList.length > 0 ? data.subjectList.map((subject) => `<span class="chip">${subject}</span>`).join("") : `<span class="chip soft">No subjects listed</span>`}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Parent Details</h2>
+            <div class="section-body">
+              ${student.parents ? `
+                <div class="info-grid">
+                  <div class="info"><span>Father's Name</span><span>${student.parents.fatherName || "—"}</span></div>
+                  <div class="info"><span>Father's Mobile</span><span>${student.parents.fatherMobile || "—"}</span></div>
+                  <div class="info"><span>Mother's Name</span><span>${student.parents.motherName || "—"}</span></div>
+                  <div class="info"><span>Mother's Mobile</span><span>${student.parents.motherMobile || "—"}</span></div>
+                  <div class="info"><span>Occupation</span><span>${student.parents.occupation || "—"}</span></div>
+                </div>
+              ` : `<div style="color:#64748b;">No parent details added.</div>`}
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Address</h2>
+            <div class="section-body">
+              ${student.address ? `
+                <div class="info-grid">
+                  <div class="info"><span>Street</span><span>${student.address.street || "—"}</span></div>
+                  <div class="info"><span>Landmark</span><span>${student.address.landmark || "—"}</span></div>
+                  <div class="info"><span>City</span><span>${student.address.city || "—"}</span></div>
+                  <div class="info"><span>Pincode</span><span>${student.address.pincode || "—"}</span></div>
+                </div>
+              ` : `<div style="color:#64748b;">No address details added.</div>`}
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Performance Snapshot</h2>
+            <div class="section-body">
+              <div class="info-grid">
+                <div class="info"><span>Attendance Records</span><span>${data.totalAttendance}</span></div>
+                <div class="info"><span>Present / Late / Absent</span><span>${data.presentCount} / ${data.lateCount} / ${data.absentCount}</span></div>
+                <div class="info"><span>Fee Payments</span><span>${student.fees.length}</span></div>
+                <div class="info"><span>Test Scores</span><span>${student.testScores.length}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>All Test Scores</h2>
+            <div class="section-body">
+              ${student.testScores.length > 0 ? `
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Test</th>
+                        <th>Subject</th>
+                        <th>Score</th>
+                        <th>Percentage</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${latestTestScores.map((score) => {
+                        const pct = score.maxMarks > 0 ? Math.round((score.obtainedMarks / score.maxMarks) * 100) : 0;
+                        const badgeClass = pct >= 75 ? "success" : pct >= 50 ? "warning" : "danger";
+                        return `<tr>
+                          <td>${new Date(score.date).toLocaleDateString("en-IN")}</td>
+                          <td>${score.testName}</td>
+                          <td>${score.subject}</td>
+                          <td>${score.obtainedMarks}/${score.maxMarks}</td>
+                          <td><span class="badge ${badgeClass}">${pct}%</span></td>
+                        </tr>`;
+                      }).join("")}
+                    </tbody>
+                  </table>
+                </div>
+              ` : `<div style="color:#64748b;">No test score records yet.</div>`}
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>All Attendance</h2>
+            <div class="section-body">
+              ${student.attendance.length > 0 ? `
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${latestAttendance.map((attendance) => {
+                        const status = attendance.status?.toUpperCase();
+                        const badgeClass = status === "PRESENT" ? "success" : status === "LATE" ? "warning" : "danger";
+                        return `<tr>
+                          <td>${new Date(attendance.date).toLocaleDateString("en-IN")}</td>
+                          <td>${attendance.subject || "General"}</td>
+                          <td><span class="badge ${badgeClass}">${attendance.status}</span></td>
+                        </tr>`;
+                      }).join("")}
+                    </tbody>
+                  </table>
+                </div>
+              ` : `<div style="color:#64748b;">No attendance records yet.</div>`}
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Fee Transfer / Payment History</h2>
+            <div class="section-body">
+              ${student.fees.length > 0 ? `
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Installment</th>
+                        <th>Amount Paid</th>
+                        <th>Mode</th>
+                        <th>Transaction / Bank</th>
+                        <th>Receipt</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${latestFees.map((fee) => `<tr>
+                        <td>${fee.paymentDate ? new Date(fee.paymentDate).toLocaleDateString("en-IN") : "—"}</td>
+                        <td>#${fee.installmentNo || 1}</td>
+                        <td>${formatCurrency(fee.amountPaid || 0)}</td>
+                        <td>${fee.paymentMode || "—"}</td>
+                        <td>${[fee.transactionId, fee.bankName].filter(Boolean).join(" / ") || "—"}</td>
+                        <td>${fee.receiptNo || "—"}</td>
+                      </tr>`).join("")}
+                    </tbody>
+                  </table>
+                </div>
+              ` : `<div style="color:#64748b;">No fee payments recorded yet.</div>`}
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Recent Activity</h2>
+            <div class="section-body">
+              <div class="info-grid">
+                <div class="info"><span>Latest Attendance</span><span>${latestAttendance[0] ? `${new Date(latestAttendance[0].date).toLocaleDateString("en-IN")} - ${latestAttendance[0].status}` : "—"}</span></div>
+                <div class="info"><span>Latest Test Score</span><span>${latestTestScores[0] ? `${latestTestScores[0].testName} (${latestTestScores[0].obtainedMarks}/${latestTestScores[0].maxMarks})` : "—"}</span></div>
+                <div class="info"><span>Latest Fee</span><span>${latestFees[0] ? `${formatCurrency(latestFees[0].amountPaid || 0)} on ${latestFees[0].paymentDate ? new Date(latestFees[0].paymentDate).toLocaleDateString("en-IN") : "—"}` : "—"}</span></div>
+                <div class="info"><span>Report Balance</span><span>${formatCurrency(data.remainingFees)}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">Generated by K Meson Academy student record system.</div>
+      </div>
+    </div>
+  `;
+}
+function openStudentReport(student: StudentDetails, autoPrint = true) {
+  const reportRoot = document.createElement("div");
+  reportRoot.innerHTML = renderStudentReport(student);
+  const styles = reportRoot.querySelector("style")?.outerHTML || "";
+  const content = reportRoot.innerHTML;
+
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument;
+  const win = iframe.contentWindow;
+  if (!doc || !win) {
+    iframe.remove();
+    return;
+  }
+
+  doc.open();
+  doc.write(`<!DOCTYPE html><html><head><title>${student.firstName} ${student.lastName} - Report</title>${styles}</head><body>${content}</body></html>`);
+  doc.close();
+
+  const cleanup = () => {
+    iframe.remove();
+  };
+
+  if (autoPrint) {
+    const triggerPrint = () => {
+      win.focus();
+      win.print();
+      setTimeout(cleanup, 1000);
+    };
+    if (doc.readyState === "complete") {
+      setTimeout(triggerPrint, 250);
+    } else {
+      iframe.onload = () => setTimeout(triggerPrint, 250);
+    }
+  } else {
+    setTimeout(cleanup, 2000);
+  }
+}
+
+async function downloadStudentReport(student: StudentDetails) {
+  const reportRoot = document.createElement("div");
+  reportRoot.innerHTML = renderStudentReport(student);
+  const reportElement = reportRoot.firstElementChild as HTMLElement | null;
+  if (!reportElement) return;
+
+  document.body.appendChild(reportElement);
+
+  const fullName = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(" ");
+  const fileName = `${fullName.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_\-]/g, "") || "student"}_report.pdf`;
+
+  try {
+    const options = {
+      margin: 10,
+      filename: fileName,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["css", "legacy"] },
+    };
+
+    await html2pdf().set(options).from(reportElement).save();
+  } finally {
+    reportElement.remove();
+  }
+}
+
 const InfoRow = ({ label, value }: { label: string; value?: string | null }) => (
   <div className="flex justify-between py-2.5 border-b border-gray-100 last:border-0">
     <span className="text-sm text-gray-500 font-medium">{label}</span>
@@ -284,6 +664,23 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
               <span className="flex items-center gap-1.5"><Phone size={14} /> {student.mobile}</span>
               {student.email && <span className="flex items-center gap-1.5"><Mail size={14} /> {student.email}</span>}
               {student.address?.city && <span className="flex items-center gap-1.5"><MapPin size={14} /> {student.address.city}</span>}
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-center md:justify-start gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => openStudentReport(student, true)}
+                className="bg-white text-blue-700 hover:bg-blue-50"
+              >
+                <Printer size={16} className="mr-2" /> Print Report
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => downloadStudentReport(student)}
+                className="bg-white/15 text-white border border-white/20 hover:bg-white/20"
+              >
+                <Download size={16} className="mr-2" /> Download Report
+              </Button>
             </div>
           </div>
 
