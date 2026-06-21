@@ -5,6 +5,7 @@ import {
   Plus, Search, IndianRupee, Download, Printer, CheckCircle2,
   AlertCircle, TrendingUp, Users, Receipt
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -154,6 +155,7 @@ function printReceipt(fee: Fee, feeHistory: Fee[]) {
 
 export default function FeesPage() {
   const { showToast } = useToast();
+  const router = useRouter();
   const [fees, setFees] = useState<Fee[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,6 +175,23 @@ export default function FeesPage() {
     chequeNo: "",
     installmentNo: "",
   });
+
+  useEffect(() => {
+    checkAdminRole();
+  }, []);
+
+  const checkAdminRole = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      if (data.role !== "SUPER_ADMIN") {
+        showToast("Unauthorized: Only super admins can access fees", "error");
+        router.push("/admin");
+      }
+    } catch {
+      router.push("/admin");
+    }
+  };
 
   useEffect(() => { fetchFees(); fetchStudents(); }, []);
 

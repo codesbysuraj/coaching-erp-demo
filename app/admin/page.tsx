@@ -69,10 +69,22 @@ const formatShortDate = (isoDate: string) =>
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<string>("");
 
   useEffect(() => {
+    fetchAdminRole();
     fetchDashboardData();
   }, []);
+
+  const fetchAdminRole = async () => {
+    try {
+      const response = await fetch("/api/auth/me");
+      const data = await response.json();
+      if (data.role) setRole(data.role);
+    } catch (error) {
+      console.error("Failed to fetch admin role:", error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -149,21 +161,23 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Pending Fees</p>
-                <h3 className="text-3xl font-bold text-gray-900 mt-2">
-                  {formatCurrency(stats?.pendingFees || 0)}
-                </h3>
+        {role === "SUPER_ADMIN" && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Pending Fees</p>
+                  <h3 className="text-3xl font-bold text-gray-900 mt-2">
+                    {formatCurrency(stats?.pendingFees || 0)}
+                  </h3>
+                </div>
+                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                  <IndianRupee className="text-red-600" size={24} />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <IndianRupee className="text-red-600" size={24} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent className="pt-6">
@@ -249,24 +263,26 @@ export default function AdminDashboard() {
 
       {/* Additional Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Fee Collection</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 bg-gray-50 rounded-lg p-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={feeChartData} margin={{ top: 10, right: 10, bottom: 0, left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis tickFormatter={(value) => `₹${Number(value) / 1000}k`} />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
-                  <Bar dataKey="amount" radius={[6, 6, 0, 0]} fill="#2563eb" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        {role === "SUPER_ADMIN" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Fee Collection</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 bg-gray-50 rounded-lg p-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={feeChartData} margin={{ top: 10, right: 10, bottom: 0, left: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis tickFormatter={(value) => `₹${Number(value) / 1000}k`} />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
+                    <Bar dataKey="amount" radius={[6, 6, 0, 0]} fill="#2563eb" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

@@ -28,14 +28,16 @@ const baseMenuItems = [
   { name: "Students", icon: Users, path: "/admin/students" },
   { name: "Attendance", icon: ClipboardCheck, path: "/admin/attendance" },
   { name: "Test Scores", icon: ClipboardList, path: "/admin/test-scores" },
-  { name: "Fees", icon: Wallet, path: "/admin/fees" },
   { name: "Academics", icon: BookOpen, path: "/admin/academics" },
   { name: "Parents", icon: UserCircle, path: "/admin/parents" },
   { name: "Recycle Bin", icon: Trash2, path: "/admin/recycle-bin" },
   { name: "Settings", icon: Settings, path: "/admin/settings" },
 ];
 
-const superAdminItem = { name: "Admins", icon: ShieldCheck, path: "/admin/admins" };
+const superAdminItems = [
+  { name: "Fees", icon: Wallet, path: "/admin/fees" },
+  { name: "Admins", icon: ShieldCheck, path: "/admin/admins" },
+];
 
 export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
   const pathname = usePathname();
@@ -45,7 +47,7 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
   const [role, setRole] = useState("");
 
   const menuItems = role === "SUPER_ADMIN"
-    ? [...baseMenuItems, superAdminItem]
+    ? [...baseMenuItems, ...superAdminItems]
     : baseMenuItems;
 
   useEffect(() => {

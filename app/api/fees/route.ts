@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma, withRetry } from "@/lib/prisma";
+import { getAdminFromCookies, isSuperAdmin } from "@/lib/auth";
 
 type FeeRow = {
   id: number;
@@ -27,6 +28,11 @@ type FeeRow = {
 // GET ALL FEES
 export async function GET(req: Request) {
   try {
+    const admin = await getAdminFromCookies();
+    if (!admin || !isSuperAdmin(admin)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const studentId = searchParams.get("studentId");
 
@@ -89,6 +95,11 @@ export async function GET(req: Request) {
 // RECORD A PAYMENT – raw SQL for new columns
 export async function POST(req: Request) {
   try {
+    const admin = await getAdminFromCookies();
+    if (!admin || !isSuperAdmin(admin)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     const body = await req.json();
 
     let finalReceiptNo = body.receiptNo;
