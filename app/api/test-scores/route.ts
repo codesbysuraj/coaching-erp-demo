@@ -52,3 +52,54 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to create test score" }, { status: 500 });
   }
 }
+
+// UPDATE TEST SCORE
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, subject, testName, maxMarks, obtainedMarks, date } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Test score ID is required" }, { status: 400 });
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (subject !== undefined) updateData.subject = subject;
+    if (testName !== undefined) updateData.testName = testName;
+    if (maxMarks !== undefined) updateData.maxMarks = parseFloat(maxMarks);
+    if (obtainedMarks !== undefined) updateData.obtainedMarks = parseFloat(obtainedMarks);
+    if (date !== undefined) updateData.date = new Date(date);
+
+    const testScore = await withRetry(() => prisma.testScore.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+      include: { student: true },
+    }));
+
+    return NextResponse.json(testScore);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Failed to update test score" }, { status: 500 });
+  }
+}
+
+// DELETE TEST SCORE
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Test score ID is required" }, { status: 400 });
+    }
+
+    await withRetry(() => prisma.testScore.delete({
+      where: { id: parseInt(id) },
+    }));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Failed to delete test score" }, { status: 500 });
+  }
+}

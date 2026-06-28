@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -30,7 +30,19 @@ interface TestScore {
   student: Student;
 }
 
-const ALL_SUBJECTS = ["Physics", "Chemistry", "Mathematics", "IT", "CS", "Biology"];
+const ALL_SUBJECTS = [
+  "English",
+  "Hindi",
+  "Marathi",
+  "Science 1",
+  "Science 2",
+  "History",
+  "Civics",
+  "Geography",
+  "SST",
+  "Maths 1",
+  "Maths 2",
+];
 
 export default function TestScoresPage() {
   const { showToast } = useToast();
@@ -40,8 +52,11 @@ export default function TestScoresPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingScoreId, setEditingScoreId] = useState<number | null>(null);
   const [studentSearchTerm, setStudentSearchTerm] = useState("");
   const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     studentId: "",
     subject: "",
@@ -91,7 +106,7 @@ export default function TestScoresPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.studentId) {
+    if (!isEditMode && !formData.studentId) {
       showToast("Please select a student", "warning");
       return;
     }
@@ -102,22 +117,81 @@ export default function TestScoresPage() {
     }
 
     try {
-      const response = await fetch("/api/test-scores", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+      if (isEditMode && editingScoreId) {
+        // UPDATE existing score
+        const response = await fetch("/api/test-scores", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingScoreId,
+            subject: formData.subject,
+            testName: formData.testName,
+            maxMarks: formData.maxMarks,
+            obtainedMarks: formData.obtainedMarks,
+            date: formData.date,
+          }),
+        });
+
+        if (response.ok) {
+          fetchTestScores();
+          setIsModalOpen(false);
+          resetForm();
+          showToast("Test score updated successfully!", "success");
+        } else {
+          showToast("Failed to update test score", "error");
+        }
+      } else {
+        // CREATE new score
+        const response = await fetch("/api/test-scores", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+
+        if (response.ok) {
+          fetchTestScores();
+          setIsModalOpen(false);
+          resetForm();
+          showToast("Test score added successfully!", "success");
+        } else {
+          showToast("Failed to add test score", "error");
+        }
+      }
+    } catch (error) {
+      showToast(isEditMode ? "Failed to update test score" : "Failed to add test score", "error");
+    }
+  };
+
+  const handleEdit = (score: TestScore) => {
+    setIsEditMode(true);
+    setEditingScoreId(score.id);
+    setFormData({
+      studentId: score.studentId.toString(),
+      subject: score.subject,
+      testName: score.testName,
+      maxMarks: score.maxMarks.toString(),
+      obtainedMarks: score.obtainedMarks.toString(),
+      date: new Date(score.date).toISOString().split("T")[0],
+    });
+    setStudentSearchTerm(`${score.student.firstName} ${score.student.lastName}${score.student.standard ? ` (${score.student.standard})` : ""}`);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      const response = await fetch(`/api/test-scores?id=${id}`, {
+        method: "DELETE",
       });
 
       if (response.ok) {
         fetchTestScores();
-        setIsModalOpen(false);
-        resetForm();
-        showToast("Test score added successfully!", "success");
+        setDeleteConfirmId(null);
+        showToast("Test score deleted successfully!", "success");
       } else {
-        showToast("Failed to add test score", "error");
+        showToast("Failed to delete test score", "error");
       }
     } catch (error) {
-      showToast("Failed to add test score", "error");
+      showToast("Failed to delete test score", "error");
     }
   };
 
@@ -132,6 +206,8 @@ export default function TestScoresPage() {
     });
     setStudentSearchTerm("");
     setIsStudentDropdownOpen(false);
+    setIsEditMode(false);
+    setEditingScoreId(null);
   };
 
   const filteredStudents = students.filter((student) => {
@@ -262,6 +338,7 @@ export default function TestScoresPage() {
                 <TableHead>Marks</TableHead>
                 <TableHead>Percentage</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -291,12 +368,47 @@ export default function TestScoresPage() {
                       <TableCell>
                         {new Date(score.date).toLocaleDateString()}
                       </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEdit(score)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit score"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          {deleteConfirmId === score.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleDelete(score.id)}
+                                className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteConfirmId(score.id)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete score"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                     No test scores found
                   </TableCell>
                 </TableRow>
@@ -306,11 +418,11 @@ export default function TestScoresPage() {
         </CardContent>
       </Card>
 
-      {/* Add Test Score Modal */}
+      {/* Add / Edit Test Score Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); resetForm(); }}
-        title="Add Test Score"
+        title={isEditMode ? "Edit Test Score" : "Add Test Score"}
         size="md"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -320,46 +432,57 @@ export default function TestScoresPage() {
                 Search Student
               </label>
               <div className="relative">
-                <Input
-                  type="text"
-                  value={studentSearchTerm}
-                  onChange={(e) => {
-                    setStudentSearchTerm(e.target.value);
-                    setIsStudentDropdownOpen(true);
-                    if (formData.studentId) {
-                      setFormData({ ...formData, studentId: "" });
-                    }
-                  }}
-                  onFocus={() => setIsStudentDropdownOpen(true)}
-                  onBlur={() => {
-                    window.setTimeout(() => setIsStudentDropdownOpen(false), 150);
-                  }}
-                  placeholder="Search by name, class, or ID"
-                  required
-                />
-                {isStudentDropdownOpen && filteredStudents.length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-                    {filteredStudents.map((student) => {
-                      const label = `${student.firstName} ${student.lastName}${student.standard ? ` (${student.standard})` : ""}`;
-                      return (
-                        <button
-                          key={student.id}
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => handleStudentSelect(student)}
-                          className="w-full px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
-                        >
-                          <div className="font-medium text-gray-900">{label}</div>
-                          <div className="text-xs text-gray-500">ID: {student.id}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                {isStudentDropdownOpen && studentSearchTerm.trim() && filteredStudents.length === 0 && (
-                  <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg">
-                    No students found
-                  </div>
+                {isEditMode ? (
+                  <Input
+                    type="text"
+                    value={studentSearchTerm}
+                    disabled
+                    className="bg-gray-50 cursor-not-allowed"
+                  />
+                ) : (
+                  <>
+                    <Input
+                      type="text"
+                      value={studentSearchTerm}
+                      onChange={(e) => {
+                        setStudentSearchTerm(e.target.value);
+                        setIsStudentDropdownOpen(true);
+                        if (formData.studentId) {
+                          setFormData({ ...formData, studentId: "" });
+                        }
+                      }}
+                      onFocus={() => setIsStudentDropdownOpen(true)}
+                      onBlur={() => {
+                        window.setTimeout(() => setIsStudentDropdownOpen(false), 150);
+                      }}
+                      placeholder="Search by name, class, or ID"
+                      required
+                    />
+                    {isStudentDropdownOpen && filteredStudents.length > 0 && (
+                      <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                        {filteredStudents.map((student) => {
+                          const label = `${student.firstName} ${student.lastName}${student.standard ? ` (${student.standard})` : ""}`;
+                          return (
+                            <button
+                              key={student.id}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleStudentSelect(student)}
+                              className="w-full px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                            >
+                              <div className="font-medium text-gray-900">{label}</div>
+                              <div className="text-xs text-gray-500">ID: {student.id}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {isStudentDropdownOpen && studentSearchTerm.trim() && filteredStudents.length === 0 && (
+                      <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg">
+                        No students found
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -421,9 +544,28 @@ export default function TestScoresPage() {
             >
               Cancel
             </Button>
-            <Button type="submit">Add Test Score</Button>
+            <Button type="submit">{isEditMode ? "Update Test Score" : "Add Test Score"}</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteConfirmId !== null}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Delete Test Score"
+        size="sm"
+      >
+        <p className="text-gray-600 mb-6">Are you sure you want to delete this test score? This action cannot be undone.</p>
+        <div className="flex justify-end gap-3">
+          <Button variant="secondary" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+          <Button
+            onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            Delete
+          </Button>
+        </div>
       </Modal>
     </div>
   );
