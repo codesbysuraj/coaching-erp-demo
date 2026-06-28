@@ -573,6 +573,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
   const ALL_SUBJECTS = [
     "English", "Hindi", "Marathi", "Science 1", "Science 2",
     "History", "Civics", "Geography", "SST", "Maths 1", "Maths 2",
+    "Physics", "Chemistry", "Mathematics", "Biology", "CS", "IT",
   ];
 
   const reloadStudent = async () => {

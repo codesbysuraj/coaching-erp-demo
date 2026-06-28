@@ -50,6 +50,12 @@ const ALL_SUBJECTS = [
   "SST",
   "Maths 1",
   "Maths 2",
+  "Physics",
+  "Chemistry",
+  "Mathematics",
+  "Biology",
+  "CS",
+  "IT",
 ];
 
 const emptyScoreRow = (): ScoreRow => ({
