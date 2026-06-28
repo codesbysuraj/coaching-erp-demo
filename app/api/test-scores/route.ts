@@ -30,11 +30,27 @@ export async function GET(req: Request) {
   }
 }
 
-// CREATE TEST SCORE
+// CREATE TEST SCORE (single or batch)
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
+    // Batch creation: { studentId, testName, date, scores: [{ subject, maxMarks, obtainedMarks }] }
+    if (body.scores && Array.isArray(body.scores)) {
+      const data = body.scores.map((s: { subject: string; maxMarks: string; obtainedMarks: string }) => ({
+        studentId: parseInt(body.studentId),
+        subject: s.subject,
+        testName: body.testName,
+        maxMarks: parseFloat(s.maxMarks),
+        obtainedMarks: parseFloat(s.obtainedMarks),
+        date: new Date(body.date),
+      }));
+
+      const result = await withRetry(() => prisma.testScore.createMany({ data }));
+      return NextResponse.json({ count: result.count });
+    }
+
+    // Single creation (backward compatible)
     const testScore = await withRetry(() => prisma.testScore.create({
       data: {
         studentId: parseInt(body.studentId),

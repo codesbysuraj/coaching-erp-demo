@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -30,6 +30,12 @@ interface TestScore {
   student: Student;
 }
 
+interface ScoreRow {
+  subject: string;
+  maxMarks: string;
+  obtainedMarks: string;
+}
+
 const ALL_SUBJECTS = [
   "English",
   "Hindi",
@@ -44,27 +50,39 @@ const ALL_SUBJECTS = [
   "Maths 2",
 ];
 
+const emptyScoreRow = (): ScoreRow => ({ subject: "", maxMarks: "", obtainedMarks: "" });
+
 export default function TestScoresPage() {
   const { showToast } = useToast();
   const [testScores, setTestScores] = useState<TestScore[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editingScoreId, setEditingScoreId] = useState<number | null>(null);
+
+  // Add modal state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [studentSearchTerm, setStudentSearchTerm] = useState("");
   const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-  const [formData, setFormData] = useState({
-    studentId: "",
+  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [testName, setTestName] = useState("");
+  const [testDate, setTestDate] = useState(new Date().toISOString().split("T")[0]);
+  const [scoreRows, setScoreRows] = useState<ScoreRow[]>([emptyScoreRow()]);
+
+  // Edit modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingScoreId, setEditingScoreId] = useState<number | null>(null);
+  const [editStudentName, setEditStudentName] = useState("");
+  const [editFormData, setEditFormData] = useState({
     subject: "",
     testName: "",
     maxMarks: "",
     obtainedMarks: "",
-    date: new Date().toISOString().split("T")[0],
+    date: "",
   });
+
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchTestScores();
@@ -93,96 +111,153 @@ export default function TestScoresPage() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  // ── ADD MODAL HANDLERS ──
 
   const handleStudentSelect = (student: Student) => {
-    setFormData({ ...formData, studentId: student.id.toString() });
+    setSelectedStudentId(student.id.toString());
     setStudentSearchTerm(`${student.firstName} ${student.lastName}${student.standard ? ` (${student.standard})` : ""}`);
     setIsStudentDropdownOpen(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const addScoreRow = () => {
+    setScoreRows([...scoreRows, emptyScoreRow()]);
+  };
+
+  const removeScoreRow = (index: number) => {
+    if (scoreRows.length === 1) return;
+    setScoreRows(scoreRows.filter((_, i) => i !== index));
+  };
+
+  const updateScoreRow = (index: number, field: keyof ScoreRow, value: string) => {
+    const updated = [...scoreRows];
+    updated[index] = { ...updated[index], [field]: value };
+    setScoreRows(updated);
+  };
+
+  const resetAddForm = () => {
+    setSelectedStudentId("");
+    setStudentSearchTerm("");
+    setIsStudentDropdownOpen(false);
+    setTestName("");
+    setTestDate(new Date().toISOString().split("T")[0]);
+    setScoreRows([emptyScoreRow()]);
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!isEditMode && !formData.studentId) {
+    if (!selectedStudentId) {
       showToast("Please select a student", "warning");
       return;
     }
 
-    if (parseFloat(formData.obtainedMarks) > parseFloat(formData.maxMarks)) {
-      showToast("Obtained marks cannot exceed max marks", "warning");
+    // Validate all rows
+    for (let i = 0; i < scoreRows.length; i++) {
+      const row = scoreRows[i];
+      if (!row.subject) {
+        showToast(`Row ${i + 1}: Please select a subject`, "warning");
+        return;
+      }
+      if (!row.maxMarks || !row.obtainedMarks) {
+        showToast(`Row ${i + 1}: Please enter marks`, "warning");
+        return;
+      }
+      if (parseFloat(row.obtainedMarks) > parseFloat(row.maxMarks)) {
+        showToast(`Row ${i + 1} (${row.subject}): Obtained marks cannot exceed max marks`, "warning");
+        return;
+      }
+    }
+
+    // Check for duplicate subjects
+    const subjects = scoreRows.map((r) => r.subject);
+    const duplicates = subjects.filter((s, i) => subjects.indexOf(s) !== i);
+    if (duplicates.length > 0) {
+      showToast(`Duplicate subject: ${duplicates[0]}`, "warning");
       return;
     }
 
+    setSubmitting(true);
     try {
-      if (isEditMode && editingScoreId) {
-        // UPDATE existing score
-        const response = await fetch("/api/test-scores", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: editingScoreId,
-            subject: formData.subject,
-            testName: formData.testName,
-            maxMarks: formData.maxMarks,
-            obtainedMarks: formData.obtainedMarks,
-            date: formData.date,
-          }),
-        });
+      const response = await fetch("/api/test-scores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: selectedStudentId,
+          testName,
+          date: testDate,
+          scores: scoreRows,
+        }),
+      });
 
-        if (response.ok) {
-          fetchTestScores();
-          setIsModalOpen(false);
-          resetForm();
-          showToast("Test score updated successfully!", "success");
-        } else {
-          showToast("Failed to update test score", "error");
-        }
+      if (response.ok) {
+        fetchTestScores();
+        setIsAddModalOpen(false);
+        resetAddForm();
+        showToast(
+          scoreRows.length === 1
+            ? "Test score added successfully!"
+            : `${scoreRows.length} test scores added successfully!`,
+          "success"
+        );
       } else {
-        // CREATE new score
-        const response = await fetch("/api/test-scores", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
-
-        if (response.ok) {
-          fetchTestScores();
-          setIsModalOpen(false);
-          resetForm();
-          showToast("Test score added successfully!", "success");
-        } else {
-          showToast("Failed to add test score", "error");
-        }
+        showToast("Failed to add test scores", "error");
       }
     } catch (error) {
-      showToast(isEditMode ? "Failed to update test score" : "Failed to add test score", "error");
+      showToast("Failed to add test scores", "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  // ── EDIT MODAL HANDLERS ──
+
   const handleEdit = (score: TestScore) => {
-    setIsEditMode(true);
     setEditingScoreId(score.id);
-    setFormData({
-      studentId: score.studentId.toString(),
+    setEditStudentName(`${score.student.firstName} ${score.student.lastName}${score.student.standard ? ` (${score.student.standard})` : ""}`);
+    setEditFormData({
       subject: score.subject,
       testName: score.testName,
       maxMarks: score.maxMarks.toString(),
       obtainedMarks: score.obtainedMarks.toString(),
       date: new Date(score.date).toISOString().split("T")[0],
     });
-    setStudentSearchTerm(`${score.student.firstName} ${score.student.lastName}${score.student.standard ? ` (${score.student.standard})` : ""}`);
-    setIsModalOpen(true);
+    setIsEditModalOpen(true);
   };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingScoreId) return;
+
+    if (parseFloat(editFormData.obtainedMarks) > parseFloat(editFormData.maxMarks)) {
+      showToast("Obtained marks cannot exceed max marks", "warning");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/test-scores", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingScoreId, ...editFormData }),
+      });
+
+      if (response.ok) {
+        fetchTestScores();
+        setIsEditModalOpen(false);
+        setEditingScoreId(null);
+        showToast("Test score updated successfully!", "success");
+      } else {
+        showToast("Failed to update test score", "error");
+      }
+    } catch (error) {
+      showToast("Failed to update test score", "error");
+    }
+  };
+
+  // ── DELETE ──
 
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/test-scores?id=${id}`, {
-        method: "DELETE",
-      });
-
+      const response = await fetch(`/api/test-scores?id=${id}`, { method: "DELETE" });
       if (response.ok) {
         fetchTestScores();
         setDeleteConfirmId(null);
@@ -195,29 +270,14 @@ export default function TestScoresPage() {
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      studentId: "",
-      subject: "",
-      testName: "",
-      maxMarks: "",
-      obtainedMarks: "",
-      date: new Date().toISOString().split("T")[0],
-    });
-    setStudentSearchTerm("");
-    setIsStudentDropdownOpen(false);
-    setIsEditMode(false);
-    setEditingScoreId(null);
-  };
+  // ── FILTERS ──
 
   const filteredStudents = students.filter((student) => {
     const query = studentSearchTerm.trim().toLowerCase();
     if (!query) return true;
-
     const fullName = `${student.firstName} ${student.lastName}`.toLowerCase();
     const standard = (student.standard || "").toLowerCase();
     const studentId = student.id.toString();
-
     return fullName.includes(query) || standard.includes(query) || studentId.includes(query);
   });
 
@@ -244,6 +304,9 @@ export default function TestScoresPage() {
     return "danger";
   };
 
+  // Which subjects are already used in the score rows (for disabling in dropdowns)
+  const usedSubjects = scoreRows.map((r) => r.subject).filter(Boolean);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -260,7 +323,7 @@ export default function TestScoresPage() {
           <h1 className="text-2xl font-bold text-gray-900">Test Scores</h1>
           <p className="text-gray-500 mt-1">Track and manage student test results</p>
         </div>
-        <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
+        <Button onClick={() => { resetAddForm(); setIsAddModalOpen(true); }}>
           <Plus size={20} className="mr-2" />
           Add Test Score
         </Button>
@@ -418,80 +481,203 @@ export default function TestScoresPage() {
         </CardContent>
       </Card>
 
-      {/* Add / Edit Test Score Modal */}
+      {/* ── ADD TEST SCORES MODAL (supports multiple) ── */}
       <Modal
-        isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); resetForm(); }}
-        title={isEditMode ? "Edit Test Score" : "Add Test Score"}
-        size="md"
+        isOpen={isAddModalOpen}
+        onClose={() => { setIsAddModalOpen(false); resetAddForm(); }}
+        title="Add Test Scores"
+        size="lg"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleAddSubmit} className="space-y-5">
+          {/* Shared fields: Student, Test Name, Date */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Search Student
+                Student *
               </label>
               <div className="relative">
-                {isEditMode ? (
-                  <Input
-                    type="text"
-                    value={studentSearchTerm}
-                    disabled
-                    className="bg-gray-50 cursor-not-allowed"
-                  />
-                ) : (
-                  <>
-                    <Input
-                      type="text"
-                      value={studentSearchTerm}
-                      onChange={(e) => {
-                        setStudentSearchTerm(e.target.value);
-                        setIsStudentDropdownOpen(true);
-                        if (formData.studentId) {
-                          setFormData({ ...formData, studentId: "" });
-                        }
-                      }}
-                      onFocus={() => setIsStudentDropdownOpen(true)}
-                      onBlur={() => {
-                        window.setTimeout(() => setIsStudentDropdownOpen(false), 150);
-                      }}
-                      placeholder="Search by name, class, or ID"
-                      required
-                    />
-                    {isStudentDropdownOpen && filteredStudents.length > 0 && (
-                      <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-                        {filteredStudents.map((student) => {
-                          const label = `${student.firstName} ${student.lastName}${student.standard ? ` (${student.standard})` : ""}`;
-                          return (
-                            <button
-                              key={student.id}
-                              type="button"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => handleStudentSelect(student)}
-                              className="w-full px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
-                            >
-                              <div className="font-medium text-gray-900">{label}</div>
-                              <div className="text-xs text-gray-500">ID: {student.id}</div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {isStudentDropdownOpen && studentSearchTerm.trim() && filteredStudents.length === 0 && (
-                      <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg">
-                        No students found
-                      </div>
-                    )}
-                  </>
+                <Input
+                  type="text"
+                  value={studentSearchTerm}
+                  onChange={(e) => {
+                    setStudentSearchTerm(e.target.value);
+                    setIsStudentDropdownOpen(true);
+                    if (selectedStudentId) setSelectedStudentId("");
+                  }}
+                  onFocus={() => setIsStudentDropdownOpen(true)}
+                  onBlur={() => window.setTimeout(() => setIsStudentDropdownOpen(false), 150)}
+                  placeholder="Search by name, class, or ID"
+                  required
+                />
+                {isStudentDropdownOpen && filteredStudents.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                    {filteredStudents.map((student) => {
+                      const label = `${student.firstName} ${student.lastName}${student.standard ? ` (${student.standard})` : ""}`;
+                      return (
+                        <button
+                          key={student.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleStudentSelect(student)}
+                          className="w-full px-3 py-2 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                        >
+                          <div className="font-medium text-gray-900">{label}</div>
+                          <div className="text-xs text-gray-500">ID: {student.id}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {isStudentDropdownOpen && studentSearchTerm.trim() && filteredStudents.length === 0 && (
+                  <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 shadow-lg">
+                    No students found
+                  </div>
                 )}
               </div>
+            </div>
+            <Input
+              label="Test Name *"
+              value={testName}
+              onChange={(e) => setTestName(e.target.value)}
+              required
+              placeholder="e.g. Unit Test 1, Mid Term"
+            />
+            <Input
+              label="Date *"
+              type="date"
+              value={testDate}
+              onChange={(e) => setTestDate(e.target.value)}
+              required
+            />
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-gray-200 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">
+                Subject Scores ({scoreRows.length})
+              </h3>
+              <button
+                type="button"
+                onClick={addScoreRow}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+              >
+                <Plus size={16} />
+                Add Score
+              </button>
+            </div>
+
+            {/* Score rows */}
+            <div className="space-y-3">
+              {scoreRows.map((row, index) => (
+                <div
+                  key={index}
+                  className="flex items-end gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100"
+                >
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Subject</label>
+                    <select
+                      value={row.subject}
+                      onChange={(e) => updateScoreRow(index, "subject", e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                    >
+                      <option value="">Select Subject</option>
+                      {ALL_SUBJECTS.map((sub) => (
+                        <option
+                          key={sub}
+                          value={sub}
+                          disabled={usedSubjects.includes(sub) && row.subject !== sub}
+                        >
+                          {sub}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-28">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Max Marks</label>
+                    <input
+                      type="number"
+                      value={row.maxMarks}
+                      onChange={(e) => updateScoreRow(index, "maxMarks", e.target.value)}
+                      required
+                      placeholder="100"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  <div className="w-28">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Obtained</label>
+                    <input
+                      type="number"
+                      value={row.obtainedMarks}
+                      onChange={(e) => updateScoreRow(index, "obtainedMarks", e.target.value)}
+                      required
+                      placeholder="85"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeScoreRow(index)}
+                    disabled={scoreRows.length === 1}
+                    className={`p-2 rounded-lg transition-colors ${
+                      scoreRows.length === 1
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-red-500 hover:bg-red-50 hover:text-red-600"
+                    }`}
+                    title="Remove this row"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Quick add hint */}
+            {scoreRows.length < ALL_SUBJECTS.length && (
+              <p className="text-xs text-gray-400 mt-2">
+                Click &quot;+ Add Score&quot; to add more subjects for the same test.
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => { setIsAddModalOpen(false); resetAddForm(); }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting
+                ? "Saving..."
+                : scoreRows.length === 1
+                  ? "Add Test Score"
+                  : `Add ${scoreRows.length} Test Scores`}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── EDIT TEST SCORE MODAL ── */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => { setIsEditModalOpen(false); setEditingScoreId(null); }}
+        title="Edit Test Score"
+        size="md"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+              <Input type="text" value={editStudentName} disabled className="bg-gray-50 cursor-not-allowed" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
               <select
-                name="subject"
-                value={formData.subject}
-                onChange={handleInputChange}
+                value={editFormData.subject}
+                onChange={(e) => setEditFormData({ ...editFormData, subject: e.target.value })}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
@@ -503,36 +689,32 @@ export default function TestScoresPage() {
             </div>
             <Input
               label="Test Name"
-              name="testName"
-              value={formData.testName}
-              onChange={handleInputChange}
+              value={editFormData.testName}
+              onChange={(e) => setEditFormData({ ...editFormData, testName: e.target.value })}
               required
               placeholder="e.g. Unit Test 1, Mid Term"
             />
             <Input
               label="Max Marks"
               type="number"
-              name="maxMarks"
-              value={formData.maxMarks}
-              onChange={handleInputChange}
+              value={editFormData.maxMarks}
+              onChange={(e) => setEditFormData({ ...editFormData, maxMarks: e.target.value })}
               required
               placeholder="e.g. 100"
             />
             <Input
               label="Obtained Marks"
               type="number"
-              name="obtainedMarks"
-              value={formData.obtainedMarks}
-              onChange={handleInputChange}
+              value={editFormData.obtainedMarks}
+              onChange={(e) => setEditFormData({ ...editFormData, obtainedMarks: e.target.value })}
               required
               placeholder="e.g. 85"
             />
             <Input
               label="Date"
               type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleInputChange}
+              value={editFormData.date}
+              onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
               required
             />
           </div>
@@ -540,11 +722,11 @@ export default function TestScoresPage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => { setIsModalOpen(false); resetForm(); }}
+              onClick={() => { setIsEditModalOpen(false); setEditingScoreId(null); }}
             >
               Cancel
             </Button>
-            <Button type="submit">{isEditMode ? "Update Test Score" : "Add Test Score"}</Button>
+            <Button type="submit">Update Test Score</Button>
           </div>
         </form>
       </Modal>
