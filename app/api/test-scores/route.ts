@@ -35,15 +35,15 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    // Batch creation: { studentId, testName, date, scores: [{ subject, testName, maxMarks, obtainedMarks }] }
+    // Batch creation: { studentId, testName, date, scores: [{ subject, testName, maxMarks, obtainedMarks, date }] }
     if (body.scores && Array.isArray(body.scores)) {
-      const data = body.scores.map((s: { subject: string; testName?: string; maxMarks: string; obtainedMarks: string }) => ({
+      const data = body.scores.map((s: { subject: string; testName?: string; maxMarks: string; obtainedMarks: string; date?: string }) => ({
         studentId: parseInt(body.studentId),
         subject: s.subject,
         testName: s.testName || body.testName || "",
         maxMarks: parseFloat(s.maxMarks),
         obtainedMarks: parseFloat(s.obtainedMarks),
-        date: new Date(body.date),
+        date: new Date(s.date || body.date || new Date()),
       }));
 
       const result = await withRetry(() => prisma.testScore.createMany({ data }));

@@ -35,6 +35,7 @@ interface ScoreRow {
   subject: string;
   maxMarks: string;
   obtainedMarks: string;
+  date: string;
 }
 
 const ALL_SUBJECTS = [
@@ -51,7 +52,13 @@ const ALL_SUBJECTS = [
   "Maths 2",
 ];
 
-const emptyScoreRow = (): ScoreRow => ({ testName: "", subject: "", maxMarks: "", obtainedMarks: "" });
+const emptyScoreRow = (): ScoreRow => ({
+  testName: "",
+  subject: "",
+  maxMarks: "",
+  obtainedMarks: "",
+  date: new Date().toISOString().split("T")[0],
+});
 
 export default function TestScoresPage() {
   const { showToast } = useToast();
@@ -67,7 +74,6 @@ export default function TestScoresPage() {
   const [studentSearchTerm, setStudentSearchTerm] = useState("");
   const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState("");
-  const [testDate, setTestDate] = useState(new Date().toISOString().split("T")[0]);
   const [scoreRows, setScoreRows] = useState<ScoreRow[]>([emptyScoreRow()]);
 
   // Edit modal state
@@ -138,7 +144,6 @@ export default function TestScoresPage() {
     setSelectedStudentId("");
     setStudentSearchTerm("");
     setIsStudentDropdownOpen(false);
-    setTestDate(new Date().toISOString().split("T")[0]);
     setScoreRows([emptyScoreRow()]);
   };
 
@@ -169,14 +174,10 @@ export default function TestScoresPage() {
         showToast(`Row ${i + 1} (${row.subject}): Obtained marks cannot exceed max marks`, "warning");
         return;
       }
-    }
-
-    // Check for duplicate subjects
-    const subjects = scoreRows.map((r) => r.subject);
-    const duplicates = subjects.filter((s, i) => subjects.indexOf(s) !== i);
-    if (duplicates.length > 0) {
-      showToast(`Duplicate subject: ${duplicates[0]}`, "warning");
-      return;
+      if (!row.date) {
+        showToast(`Row ${i + 1}: Please select a date`, "warning");
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -186,7 +187,6 @@ export default function TestScoresPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentId: selectedStudentId,
-          date: testDate,
           scores: scoreRows,
         }),
       });
@@ -308,6 +308,9 @@ export default function TestScoresPage() {
 
   // Which subjects are already used in the score rows (for disabling in dropdowns)
   const usedSubjects = scoreRows.map((r) => r.subject).filter(Boolean);
+
+  // Compute unique test names for autocomplete suggestions
+  const uniqueTestNames = Array.from(new Set(testScores.map((score) => score.testName))).filter(Boolean);
 
   if (loading) {
     return (
@@ -491,8 +494,8 @@ export default function TestScoresPage() {
         size="lg"
       >
         <form onSubmit={handleAddSubmit} className="space-y-5">
-          {/* Shared fields: Student, Date */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Shared fields: Student */}
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Student *
@@ -537,13 +540,6 @@ export default function TestScoresPage() {
                 )}
               </div>
             </div>
-            <Input
-              label="Date *"
-              type="date"
-              value={testDate}
-              onChange={(e) => setTestDate(e.target.value)}
-              required
-            />
           </div>
 
           {/* Divider */}
@@ -577,6 +573,7 @@ export default function TestScoresPage() {
                       onChange={(e) => updateScoreRow(index, "testName", e.target.value)}
                       required
                       placeholder="e.g. Unit Test 1"
+                      list="test-names-list"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                     />
                   </div>
@@ -593,15 +590,14 @@ export default function TestScoresPage() {
                         <option
                           key={sub}
                           value={sub}
-                          disabled={usedSubjects.includes(sub) && row.subject !== sub}
                         >
                           {sub}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <div className="w-full md:w-24">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Max Marks *</label>
+                  <div className="w-full md:w-20">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Max *</label>
                     <input
                       type="number"
                       value={row.maxMarks}
@@ -611,7 +607,7 @@ export default function TestScoresPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                     />
                   </div>
-                  <div className="w-full md:w-24">
+                  <div className="w-full md:w-20">
                     <label className="block text-xs font-medium text-gray-500 mb-1">Obtained *</label>
                     <input
                       type="number"
@@ -619,6 +615,16 @@ export default function TestScoresPage() {
                       onChange={(e) => updateScoreRow(index, "obtainedMarks", e.target.value)}
                       required
                       placeholder="85"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                    />
+                  </div>
+                  <div className="w-full md:w-36">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Date *</label>
+                    <input
+                      type="date"
+                      value={row.date}
+                      onChange={(e) => updateScoreRow(index, "date", e.target.value)}
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                     />
                   </div>
@@ -699,6 +705,7 @@ export default function TestScoresPage() {
               onChange={(e) => setEditFormData({ ...editFormData, testName: e.target.value })}
               required
               placeholder="e.g. Unit Test 1, Mid Term"
+              list="test-names-list"
             />
             <Input
               label="Max Marks"
@@ -755,6 +762,12 @@ export default function TestScoresPage() {
           </Button>
         </div>
       </Modal>
+      {/* Datalist for Test Name Suggestions */}
+      <datalist id="test-names-list">
+        {uniqueTestNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
     </div>
   );
 }
