@@ -31,6 +31,7 @@ interface TestScore {
 }
 
 interface ScoreRow {
+  testName: string;
   subject: string;
   maxMarks: string;
   obtainedMarks: string;
@@ -50,7 +51,7 @@ const ALL_SUBJECTS = [
   "Maths 2",
 ];
 
-const emptyScoreRow = (): ScoreRow => ({ subject: "", maxMarks: "", obtainedMarks: "" });
+const emptyScoreRow = (): ScoreRow => ({ testName: "", subject: "", maxMarks: "", obtainedMarks: "" });
 
 export default function TestScoresPage() {
   const { showToast } = useToast();
@@ -66,7 +67,6 @@ export default function TestScoresPage() {
   const [studentSearchTerm, setStudentSearchTerm] = useState("");
   const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState("");
-  const [testName, setTestName] = useState("");
   const [testDate, setTestDate] = useState(new Date().toISOString().split("T")[0]);
   const [scoreRows, setScoreRows] = useState<ScoreRow[]>([emptyScoreRow()]);
 
@@ -138,7 +138,6 @@ export default function TestScoresPage() {
     setSelectedStudentId("");
     setStudentSearchTerm("");
     setIsStudentDropdownOpen(false);
-    setTestName("");
     setTestDate(new Date().toISOString().split("T")[0]);
     setScoreRows([emptyScoreRow()]);
   };
@@ -154,6 +153,10 @@ export default function TestScoresPage() {
     // Validate all rows
     for (let i = 0; i < scoreRows.length; i++) {
       const row = scoreRows[i];
+      if (!row.testName.trim()) {
+        showToast(`Row ${i + 1}: Please enter a test name`, "warning");
+        return;
+      }
       if (!row.subject) {
         showToast(`Row ${i + 1}: Please select a subject`, "warning");
         return;
@@ -183,7 +186,6 @@ export default function TestScoresPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentId: selectedStudentId,
-          testName,
           date: testDate,
           scores: scoreRows,
         }),
@@ -489,8 +491,8 @@ export default function TestScoresPage() {
         size="lg"
       >
         <form onSubmit={handleAddSubmit} className="space-y-5">
-          {/* Shared fields: Student, Test Name, Date */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Shared fields: Student, Date */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Student *
@@ -536,13 +538,6 @@ export default function TestScoresPage() {
               </div>
             </div>
             <Input
-              label="Test Name *"
-              value={testName}
-              onChange={(e) => setTestName(e.target.value)}
-              required
-              placeholder="e.g. Unit Test 1, Mid Term"
-            />
-            <Input
               label="Date *"
               type="date"
               value={testDate}
@@ -572,10 +567,21 @@ export default function TestScoresPage() {
               {scoreRows.map((row, index) => (
                 <div
                   key={index}
-                  className="flex items-end gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100"
+                  className="flex flex-col md:flex-row md:items-end gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100"
                 >
                   <div className="flex-1 min-w-0">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Subject</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Test Name *</label>
+                    <input
+                      type="text"
+                      value={row.testName}
+                      onChange={(e) => updateScoreRow(index, "testName", e.target.value)}
+                      required
+                      placeholder="e.g. Unit Test 1"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Subject *</label>
                     <select
                       value={row.subject}
                       onChange={(e) => updateScoreRow(index, "subject", e.target.value)}
@@ -594,33 +600,33 @@ export default function TestScoresPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="w-28">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Max Marks</label>
+                  <div className="w-full md:w-24">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Max Marks *</label>
                     <input
                       type="number"
                       value={row.maxMarks}
                       onChange={(e) => updateScoreRow(index, "maxMarks", e.target.value)}
                       required
                       placeholder="100"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                     />
                   </div>
-                  <div className="w-28">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Obtained</label>
+                  <div className="w-full md:w-24">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Obtained *</label>
                     <input
                       type="number"
                       value={row.obtainedMarks}
                       onChange={(e) => updateScoreRow(index, "obtainedMarks", e.target.value)}
                       required
                       placeholder="85"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => removeScoreRow(index)}
                     disabled={scoreRows.length === 1}
-                    className={`p-2 rounded-lg transition-colors ${
+                    className={`p-2 rounded-lg transition-colors self-end md:self-auto ${
                       scoreRows.length === 1
                         ? "text-gray-300 cursor-not-allowed"
                         : "text-red-500 hover:bg-red-50 hover:text-red-600"
@@ -636,7 +642,7 @@ export default function TestScoresPage() {
             {/* Quick add hint */}
             {scoreRows.length < ALL_SUBJECTS.length && (
               <p className="text-xs text-gray-400 mt-2">
-                Click &quot;+ Add Score&quot; to add more subjects for the same test.
+                Click &quot;+ Add Score&quot; to add more subjects with different test names.
               </p>
             )}
           </div>

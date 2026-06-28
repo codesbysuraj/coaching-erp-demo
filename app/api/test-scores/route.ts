@@ -35,12 +35,12 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    // Batch creation: { studentId, testName, date, scores: [{ subject, maxMarks, obtainedMarks }] }
+    // Batch creation: { studentId, testName, date, scores: [{ subject, testName, maxMarks, obtainedMarks }] }
     if (body.scores && Array.isArray(body.scores)) {
-      const data = body.scores.map((s: { subject: string; maxMarks: string; obtainedMarks: string }) => ({
+      const data = body.scores.map((s: { subject: string; testName?: string; maxMarks: string; obtainedMarks: string }) => ({
         studentId: parseInt(body.studentId),
         subject: s.subject,
-        testName: body.testName,
+        testName: s.testName || body.testName || "",
         maxMarks: parseFloat(s.maxMarks),
         obtainedMarks: parseFloat(s.obtainedMarks),
         date: new Date(body.date),
