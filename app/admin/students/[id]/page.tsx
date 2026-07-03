@@ -224,7 +224,7 @@ function renderStudentReport(student: StudentDetails) {
         .meta { margin-top: 10px; color: rgba(255,255,255,0.86); font-size: 14px; display: flex; flex-wrap: wrap; gap: 14px; }
         .hero-note { text-align: right; font-size: 12px; color: rgba(255,255,255,0.82); }
         .content { padding: 26px; }
-        .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
         .stat { border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); }
         .stat .label { color: #64748b; font-size: 12px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
         .stat .value { font-size: 22px; font-weight: 800; color: #0f172a; }
@@ -277,8 +277,6 @@ function renderStudentReport(student: StudentDetails) {
 
         <div class="content">
           <div class="summary-grid">
-            <div class="stat"><div class="label">Total Fees</div><div class="value">${formatCurrency(student.totalFees || 0)}</div></div>
-            <div class="stat"><div class="label">Paid</div><div class="value">${formatCurrency(data.totalPaid)}</div></div>
             <div class="stat"><div class="label">Remaining</div><div class="value">${formatCurrency(data.remainingFees)}</div></div>
             <div class="stat"><div class="label">Attendance</div><div class="value">${data.attendancePct}%</div></div>
           </div>
@@ -352,7 +350,6 @@ function renderStudentReport(student: StudentDetails) {
               <div class="info-grid">
                 <div class="info"><span>Attendance Records</span><span>${data.totalAttendance}</span></div>
                 <div class="info"><span>Present / Late / Absent</span><span>${data.presentCount} / ${data.lateCount} / ${data.absentCount}</span></div>
-                <div class="info"><span>Fee Payments</span><span>${student.fees.length}</span></div>
                 <div class="info"><span>Test Scores</span><span>${student.testScores.length}</span></div>
               </div>
             </div>
@@ -392,75 +389,13 @@ function renderStudentReport(student: StudentDetails) {
             </div>
           </div>
 
-          <div class="section">
-            <h2>All Attendance</h2>
-            <div class="section-body">
-              ${student.attendance.length > 0 ? `
-                <div class="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Subject</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${latestAttendance.map((attendance) => {
-                        const status = attendance.status?.toUpperCase();
-                        const badgeClass = status === "PRESENT" ? "success" : status === "LATE" ? "warning" : "danger";
-                        return `<tr>
-                          <td>${new Date(attendance.date).toLocaleDateString("en-IN")}</td>
-                          <td>${attendance.subject || "General"}</td>
-                          <td><span class="badge ${badgeClass}">${attendance.status}</span></td>
-                        </tr>`;
-                      }).join("")}
-                    </tbody>
-                  </table>
-                </div>
-              ` : `<div style="color:#64748b;">No attendance records yet.</div>`}
-            </div>
-          </div>
 
-          <div class="section">
-            <h2>Fee Transfer / Payment History</h2>
-            <div class="section-body">
-              ${student.fees.length > 0 ? `
-                <div class="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Installment</th>
-                        <th>Amount Paid</th>
-                        <th>Mode</th>
-                        <th>Transaction / Bank</th>
-                        <th>Receipt</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${latestFees.map((fee) => `<tr>
-                        <td>${fee.paymentDate ? new Date(fee.paymentDate).toLocaleDateString("en-IN") : "—"}</td>
-                        <td>#${fee.installmentNo || 1}</td>
-                        <td>${formatCurrency(fee.amountPaid || 0)}</td>
-                        <td>${fee.paymentMode || "—"}</td>
-                        <td>${[fee.transactionId, fee.bankName].filter(Boolean).join(" / ") || "—"}</td>
-                        <td>${fee.receiptNo || "—"}</td>
-                      </tr>`).join("")}
-                    </tbody>
-                  </table>
-                </div>
-              ` : `<div style="color:#64748b;">No fee payments recorded yet.</div>`}
-            </div>
-          </div>
 
           <div class="section">
             <h2>Recent Activity</h2>
             <div class="section-body">
               <div class="info-grid">
-                <div class="info"><span>Latest Attendance</span><span>${latestAttendance[0] ? `${new Date(latestAttendance[0].date).toLocaleDateString("en-IN")} - ${latestAttendance[0].status}` : "—"}</span></div>
                 <div class="info"><span>Latest Test Score</span><span>${latestTestScores[0] ? `${latestTestScores[0].testName} (${latestTestScores[0].obtainedMarks}/${latestTestScores[0].maxMarks})` : "—"}</span></div>
-                <div class="info"><span>Latest Fee</span><span>${latestFees[0] ? `${formatCurrency(latestFees[0].amountPaid || 0)} on ${latestFees[0].paymentDate ? new Date(latestFees[0].paymentDate).toLocaleDateString("en-IN") : "—"}` : "—"}</span></div>
                 <div class="info"><span>Report Balance</span><span>${formatCurrency(data.remainingFees)}</span></div>
               </div>
             </div>
