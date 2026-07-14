@@ -8,9 +8,16 @@ export async function GET(req: Request) {
     const date = searchParams.get("date");
     const subject = searchParams.get("subject");
     
-    const where: { date?: Date; subject?: string } = {};
+    const where: {
+      date?: { gte: Date; lt: Date };
+      subject?: string;
+    } = {};
     if (date) {
-      where.date = new Date(date);
+      // Use a day-range query so timezone offsets never cause a miss
+      const startOfDay = new Date(`${date}T00:00:00.000Z`);
+      const nextDay = new Date(startOfDay);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      where.date = { gte: startOfDay, lt: nextDay };
     }
     if (subject) {
       where.subject = subject;

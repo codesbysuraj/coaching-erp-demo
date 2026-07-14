@@ -24,7 +24,7 @@ interface AttendanceRecord {
   status: string;
 }
 
-const STANDARDS = ["9th", "10th", "11th", "12th"];
+const STANDARDS = ["9th", "9th & 10th", "10th", "11th", "11th & 12th", "12th"];
 const ALL_SUBJECTS = ["General", "Physics", "Chemistry", "Mathematics", "IT", "CS", "Biology"];
 
 export default function AttendancePage() {
@@ -59,6 +59,8 @@ export default function AttendancePage() {
   };
 
   const fetchAttendance = async () => {
+    // Reset attendance first so stale marks from a previous date/subject don't bleed in
+    setAttendance({});
     try {
       const response = await fetch(`/api/attendance?date=${selectedDate}&subject=${selectedSubject}`);
       const data = await response.json();
@@ -121,35 +123,41 @@ export default function AttendancePage() {
     }
   };
 
-  // Filter students by standard, subject, and search term
-  const filteredStudents = students.filter((student) => {
-    const query = searchTerm.trim().toLowerCase();
+  // Filter students by standard, subject, and search term, then sort alphabetically
+  const filteredStudents = students
+    .filter((student) => {
+      const query = searchTerm.trim().toLowerCase();
 
-    if (query) {
-      const fullName = `${student.firstName} ${student.lastName}`.toLowerCase();
-      const mobile = student.mobile.toLowerCase();
-      const standard = (student.standard || "").toLowerCase();
+      if (query) {
+        const fullName = `${student.firstName} ${student.lastName}`.toLowerCase();
+        const mobile = student.mobile.toLowerCase();
+        const standard = (student.standard || "").toLowerCase();
 
-      if (!fullName.includes(query) && !mobile.includes(query) && !standard.includes(query)) {
+        if (!fullName.includes(query) && !mobile.includes(query) && !standard.includes(query)) {
+          return false;
+        }
+      }
+
+      // Filter by standard
+      if (filterStandard && student.standard !== filterStandard) {
         return false;
       }
-    }
 
-    // Filter by standard
-    if (filterStandard && student.standard !== filterStandard) {
-      return false;
-    }
-    
-    // Filter by subject enrollment
-    if (selectedSubject && selectedSubject !== "General") {
-      // Check if student has this subject
-      if (!student.subjects) return false;
-      const studentSubjects = student.subjects.split(",").map((s) => s.trim());
-      return studentSubjects.includes(selectedSubject);
-    }
-    
-    return true;
-  });
+      // Filter by subject enrollment
+      if (selectedSubject && selectedSubject !== "General") {
+        // Check if student has this subject
+        if (!student.subjects) return false;
+        const studentSubjects = student.subjects.split(",").map((s) => s.trim());
+        return studentSubjects.includes(selectedSubject);
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
 
   const attendanceValues = Object.values(attendance).filter(Boolean);
   const presentCount = attendanceValues.filter((status) => status === "Present").length;
