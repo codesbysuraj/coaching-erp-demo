@@ -9,14 +9,14 @@ export async function GET() {
   }
 
   // Raw query to bypass stale client
-  const rows = await withRetry(() => prisma.$queryRaw<{ id: number; name: string; email: string; role: string }[]>`
-    SELECT id, name, email, role FROM "Admin" WHERE id = ${admin.id} LIMIT 1
+  const rows = await withRetry(() => prisma.$queryRaw<{ id: number; name: string; email: string; role: string; modules: string[] }[]>`
+    SELECT id, name, email, role, modules FROM "Admin" WHERE id = ${admin.id} LIMIT 1
   `);
 
   if (!rows || rows.length === 0) {
     return NextResponse.json({ error: "Admin not found" }, { status: 404 });
   }
 
-  const { id, name, email, role } = rows[0];
-  return NextResponse.json({ id, name, email, role });
+  const { id, name, email, role, modules } = rows[0];
+  return NextResponse.json({ id, name, email, role, modules: modules || [] });
 }

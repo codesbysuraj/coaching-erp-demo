@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { getAdminFromCookies, hasSchoolAccess } from "@/lib/auth";
 import { prisma, withRetry } from "@/lib/prisma";
 
 // GET TEST SCORES
 export async function GET(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const { searchParams } = new URL(req.url);
     const studentId = searchParams.get("studentId");
@@ -32,6 +36,9 @@ export async function GET(req: Request) {
 
 // CREATE TEST SCORE (single or batch)
 export async function POST(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const body = await req.json();
 
@@ -71,6 +78,9 @@ export async function POST(req: Request) {
 
 // UPDATE TEST SCORE
 export async function PUT(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const body = await req.json();
     const { id, subject, testName, maxMarks, obtainedMarks, date } = body;
@@ -101,6 +111,9 @@ export async function PUT(req: Request) {
 
 // DELETE TEST SCORE
 export async function DELETE(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

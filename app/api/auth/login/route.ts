@@ -9,6 +9,7 @@ interface AdminRow {
   email: string;
   passwordHash: string;
   role: string;
+  modules: string[];
 }
 
 export async function POST(req: NextRequest) {
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     const rows = await withRetry(() =>
       prisma.$queryRaw<AdminRow[]>`
-        SELECT id, name, email, "passwordHash", role
+        SELECT id, name, email, "passwordHash", role, modules
         FROM "Admin"
         WHERE email = ${email}
         LIMIT 1
@@ -48,9 +49,9 @@ export async function POST(req: NextRequest) {
       `
     );
 
-    const token = signToken({ id: admin.id, name: admin.name, email: admin.email, role: admin.role });
+    const token = signToken({ id: admin.id, name: admin.name, email: admin.email, role: admin.role, modules: admin.modules || [] });
 
-    const res = NextResponse.json({ success: true, name: admin.name, role: admin.role });
+    const res = NextResponse.json({ success: true, name: admin.name, role: admin.role, modules: admin.modules || [] });
     res.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

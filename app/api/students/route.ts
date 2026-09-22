@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma, withRetry } from "@/lib/prisma";
 import { createStudentRecord } from "@/lib/student-service";
+import { getAdminFromCookies, hasSchoolAccess } from "@/lib/auth";
 
 // GET ALL STUDENTS – raw SQL for new totalFees column
 export async function GET(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const standard = searchParams.get("standard");
@@ -33,6 +39,11 @@ export async function GET(req: Request) {
 
 // CREATE STUDENT – fully raw SQL to bypass stale Prisma client
 export async function POST(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
     const body = await req.json();
 

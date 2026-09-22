@@ -9,6 +9,7 @@ export interface AdminPayload {
   name: string;
   email: string;
   role: string;
+  modules: string[];
 }
 
 export function signToken(payload: AdminPayload): string {
@@ -33,6 +34,16 @@ export async function getAdminFromCookies(): Promise<AdminPayload | null> {
 
 export function isSuperAdmin(admin: AdminPayload | null): boolean {
   return admin?.role === "SUPER_ADMIN";
+}
+
+export function hasSchoolAccess(admin: AdminPayload | null): boolean {
+  if (isSuperAdmin(admin)) return true;
+  return admin?.modules?.includes("SCHOOL") || false;
+}
+
+export function hasCommerceAccess(admin: AdminPayload | null): boolean {
+  if (isSuperAdmin(admin)) return true;
+  return admin?.modules?.includes("COMMERCE") || false;
 }
 
 export { COOKIE_NAME };

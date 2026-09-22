@@ -16,6 +16,7 @@ interface Admin {
   name: string;
   email: string;
   role: string;
+  modules: string[];
   createdAt: string;
   lastLogin: string | null;
   loginCount: number;
@@ -46,6 +47,7 @@ export default function AdminsPage() {
   const [formEmail, setFormEmail] = useState("");
   const [formPassword, setFormPassword] = useState("");
   const [formRole, setFormRole] = useState("ADMIN");
+  const [formModules, setFormModules] = useState<string[]>(["SCHOOL"]);
   const [showFormPass, setShowFormPass] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -78,19 +80,27 @@ export default function AdminsPage() {
     }
   };
 
+  const handleModuleToggle = (mod: string) => {
+    setFormModules(prev => prev.includes(mod) ? prev.filter(m => m !== mod) : [...prev, mod]);
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formModules.length === 0 && formRole !== "SUPER_ADMIN") {
+      showToast("Select at least one module", "error");
+      return;
+    }
     setCreating(true);
     try {
       const res = await fetch("/api/admins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: formName, email: formEmail, password: formPassword, role: formRole }),
+        body: JSON.stringify({ name: formName, email: formEmail, password: formPassword, role: formRole, modules: formModules }),
       });
       const data = await res.json();
       if (!res.ok) { showToast(data.error || "Failed to create admin", "error"); return; }
       showToast(`Admin ${formName} created successfully!`, "success");
-      setFormName(""); setFormEmail(""); setFormPassword(""); setFormRole("ADMIN");
+      setFormName(""); setFormEmail(""); setFormPassword(""); setFormRole("ADMIN"); setFormModules(["SCHOOL"]);
       setShowForm(false);
       fetchAdmins();
     } finally {
@@ -121,7 +131,6 @@ export default function AdminsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -135,7 +144,6 @@ export default function AdminsPage() {
         </Button>
       </div>
 
-      {/* Create Admin Form */}
       {showForm && (
         <Card>
           <CardHeader><CardTitle>Create New Admin</CardTitle></CardHeader>
@@ -180,7 +188,24 @@ export default function AdminsPage() {
                   <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
               </div>
-              <div className="sm:col-span-2 flex gap-3">
+              
+              {formRole === "ADMIN" && (
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Module Access</label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={formModules.includes("SCHOOL")} onChange={() => handleModuleToggle("SCHOOL")} />
+                      School / Science
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={formModules.includes("COMMERCE")} onChange={() => handleModuleToggle("COMMERCE")} />
+                      Commerce
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <div className="sm:col-span-2 flex gap-3 mt-2">
                 <Button type="submit" variant="primary" disabled={creating}>
                   {creating ? "Creating..." : "Create Admin"}
                 </Button>
@@ -191,7 +216,6 @@ export default function AdminsPage() {
         </Card>
       )}
 
-      {/* Admin List */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -203,7 +227,6 @@ export default function AdminsPage() {
           <div className="divide-y divide-gray-100">
             {admins.map((admin) => (
               <div key={admin.id}>
-                {/* Admin Row */}
                 <div className="flex items-center justify-between px-6 py-4 hover:bg-gray-50">
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm flex-shrink-0">
@@ -215,8 +238,13 @@ export default function AdminsPage() {
                         <Badge variant={admin.role === "SUPER_ADMIN" ? "danger" : "info"}>
                           {admin.role === "SUPER_ADMIN" ? "Super Admin" : "Admin"}
                         </Badge>
+                        {admin.role !== "SUPER_ADMIN" && (
+                          <div className="flex gap-1 ml-2">
+                            {admin.modules?.includes("SCHOOL") && <Badge variant="warning">School</Badge>}
+                            {admin.modules?.includes("COMMERCE") && <Badge variant="success">Commerce</Badge>}
+                          </div>
+                        )}
                       </div>
-                      {/* Email with copy */}
                       <div className="flex items-center gap-1 mt-0.5">
                         <span className="text-xs text-gray-500 font-mono">{admin.email}</span>
                         <button onClick={() => copyToClipboard(admin.email, admin.id)}
@@ -254,7 +282,6 @@ export default function AdminsPage() {
                   </div>
                 </div>
 
-                {/* Login Logs Expandable */} 
                 {expandedAdmin === admin.id && (
                   <div className="bg-gray-50 border-t border-gray-100 px-6 py-3">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Login History</p>
@@ -283,7 +310,6 @@ export default function AdminsPage() {
         </CardContent>
       </Card>
 
-      {/* Recent Login Activity (all admins) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

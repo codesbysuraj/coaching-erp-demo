@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import { getAdminFromCookies, hasSchoolAccess } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { prisma, withRetry } from "@/lib/prisma";
 
 // Force-reseed: deletes and recreates admin as SUPER_ADMIN
 export async function GET() {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const passwordHash = await bcrypt.hash("Admin@1234", 12);
 

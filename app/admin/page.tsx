@@ -90,7 +90,12 @@ export default function AdminDashboard() {
     try {
       const response = await fetch("/api/dashboard");
       const data = await response.json();
-      setStats(data);
+      if (response.ok) {
+        setStats(data);
+      } else {
+        console.error("Dashboard error:", data);
+        setStats(null); // Keep as null on error
+      }
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
     } finally {
@@ -107,15 +112,15 @@ export default function AdminDashboard() {
   }
 
   const attendanceChartData = [
-    { name: "Present", value: stats?.attendanceBreakdown.present || 0 },
-    { name: "Absent", value: stats?.attendanceBreakdown.absent || 0 },
-    { name: "Late", value: stats?.attendanceBreakdown.late || 0 },
+    { name: "Present", value: stats?.attendanceBreakdown?.present || 0 },
+    { name: "Absent", value: stats?.attendanceBreakdown?.absent || 0 },
+    { name: "Late", value: stats?.attendanceBreakdown?.late || 0 },
   ];
 
   const feeChartData = [
-    { name: "Assigned", amount: stats?.feeBreakdown.assigned || 0 },
-    { name: "Collected", amount: stats?.feeBreakdown.collected || 0 },
-    { name: "Pending", amount: stats?.feeBreakdown.pending || 0 },
+    { name: "Assigned", amount: stats?.feeBreakdown?.assigned || 0 },
+    { name: "Collected", amount: stats?.feeBreakdown?.collected || 0 },
+    { name: "Pending", amount: stats?.feeBreakdown?.pending || 0 },
   ];
 
   const admissionsTrendData = (stats?.admissionsTrend || []).map((entry) => ({

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { getAdminFromCookies, hasSchoolAccess } from "@/lib/auth";
 import { prisma, withRetry } from "@/lib/prisma";
 
 // GET ALL ATTENDANCE RECORDS
 export async function GET(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
@@ -39,6 +43,9 @@ export async function GET(req: Request) {
 
 // CREATE/UPDATE/DELETE ATTENDANCE
 export async function POST(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const body = await req.json();
     const { studentId, date, status, subject } = body;

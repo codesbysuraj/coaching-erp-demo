@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { getAdminFromCookies, hasSchoolAccess } from "@/lib/auth";
 import { prisma, withRetry } from "@/lib/prisma";
 
 // GET DASHBOARD STATISTICS
 export async function GET() {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const totalStudents = await withRetry(() => prisma.student.count());
     
@@ -30,9 +34,19 @@ export async function GET() {
     const sumPaidResult = (await withRetry(() => prisma.$queryRaw<Array<{ amountPaidSum: number | null }>>`
       SELECT SUM("amountPaid") as "amountPaidSum" FROM "Fees"
     `)) as Array<{ amountPaidSum: number | null }>;
+    const pendingResult = (await withRetry(() => prisma.$queryRaw<Array<{ pendingSum: number | null }>>`
+      SELECT SUM(remaining) as "pendingSum" FROM (
+        SELECT GREATEST(0, COALESCE(s."totalFees", 0) - COALESCE(SUM(f."amountPaid"), 0)) as remaining
+        FROM "Student" s
+        LEFT JOIN "Fees" f ON s.id = f."studentId"
+        WHERE s."deletedAt" IS NULL
+        GROUP BY s.id, s."totalFees"
+      ) as subquery
+    `)) as Array<{ pendingSum: number | null }>;
+    
     const totalAssigned = sumFeesResult[0]?.totalFeesSum ? Number(sumFeesResult[0].totalFeesSum) : 0;
     const totalCollected = sumPaidResult[0]?.amountPaidSum ? Number(sumPaidResult[0].amountPaidSum) : 0;
-    const pendingFees = Math.max(0, totalAssigned - totalCollected);
+    const pendingFees = pendingResult[0]?.pendingSum ? Number(pendingResult[0].pendingSum) : 0;
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

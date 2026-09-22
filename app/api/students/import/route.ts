@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAdminFromCookies, hasSchoolAccess } from "@/lib/auth";
 import { prisma, withRetry } from "@/lib/prisma";
 import { createStudentRecord, mapCsvRow, normalizeStudentCsvValue, parseCsv, type StudentPayload } from "@/lib/student-service";
 
@@ -34,6 +35,9 @@ function parseDateValue(value: string | null) {
 }
 
 export async function POST(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const formData = await req.formData();
     const file = formData.get("file");

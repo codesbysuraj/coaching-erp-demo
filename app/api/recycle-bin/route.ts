@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { getAdminFromCookies, hasSchoolAccess } from "@/lib/auth";
 import { prisma, withRetry } from "@/lib/prisma";
 
 // GET ALL DELETED STUDENTS (Recycle Bin)
 export async function GET() {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const deletedStudents = await withRetry(() => prisma.student.findMany({
       where: {
@@ -19,6 +23,9 @@ export async function GET() {
 
 // RESTORE A STUDENT
 export async function PUT(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const body = await req.json();
     const { studentId } = body;
@@ -37,6 +44,9 @@ export async function PUT(req: Request) {
 
 // HARD DELETE (Permanent)
 export async function DELETE(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const { searchParams } = new URL(req.url);
     const studentId = searchParams.get("studentId");

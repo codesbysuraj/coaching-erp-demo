@@ -17,6 +17,7 @@ export async function GET() {
         name: string;
         email: string;
         role: string;
+        modules: string[];
         createdAt: Date;
         lastLogin: Date | null;
         loginCount: number;
@@ -27,12 +28,13 @@ export async function GET() {
         a.name,
         a.email,
         a.role,
+        a.modules,
         a."createdAt",
         MAX(l."loggedInAt") AS "lastLogin",
         COUNT(l.id)::int AS "loginCount"
       FROM "Admin" a
       LEFT JOIN "AdminLoginLog" l ON l."adminId" = a.id
-      GROUP BY a.id, a.name, a.email, a.role, a."createdAt"
+      GROUP BY a.id, a.name, a.email, a.role, a.modules, a."createdAt"
       ORDER BY a."createdAt" ASC
     `
   );
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, email, password, role } = await req.json();
+  const { name, email, password, role, modules = ["SCHOOL"] } = await req.json();
 
   if (!name || !email || !password) {
     return NextResponse.json({ error: "Name, email, and password are required" }, { status: 400 });
@@ -62,8 +64,8 @@ export async function POST(req: NextRequest) {
   try {
     await withRetry(() =>
       prisma.$executeRaw`
-        INSERT INTO "Admin" (name, email, "passwordHash", role, "createdAt")
-        VALUES (${name}, ${email}, ${passwordHash}, ${adminRole}, NOW())
+        INSERT INTO "Admin" (name, email, "passwordHash", role, modules, "createdAt")
+        VALUES (${name}, ${email}, ${passwordHash}, ${adminRole}, ${modules}, NOW())
       `
     );
     return NextResponse.json({ success: true });

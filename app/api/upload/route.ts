@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { getAdminFromCookies, hasSchoolAccess } from "@/lib/auth";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
 export async function POST(req: Request) {
+  const admin = await getAdminFromCookies();
+  if (!hasSchoolAccess(admin)) { return NextResponse.json({ error: "Forbidden" }, { status: 403 }); }
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;

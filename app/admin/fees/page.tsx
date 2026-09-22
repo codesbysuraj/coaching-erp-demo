@@ -251,9 +251,12 @@ export default function FeesPage() {
     return { ...s, paid, remaining: Math.max(0, total - paid) };
   }).filter(s => s.totalFees && s.totalFees > 0);
 
-  const totalAssigned = studentBalances.reduce((s, x) => s + (x.totalFees || 0), 0);
-  const totalCollected = studentBalances.reduce((s, x) => s + x.paid, 0);
-  const totalPending = totalAssigned - totalCollected;
+  const totalAssigned = students.reduce((sum, s) => sum + (s.totalFees || 0), 0);
+  const totalCollected = fees.reduce((sum, f) => sum + (f.amountPaid || 0), 0);
+  const totalPending = students.reduce((sum, s) => {
+    const paid = fees.filter(f => f.studentId === s.id).reduce((acc, f) => acc + (f.amountPaid || 0), 0);
+    return sum + Math.max(0, (s.totalFees || 0) - paid);
+  }, 0);
 
   const filteredStudentBalances = studentBalances.filter((student) => {
     const query = balanceSearchTerm.trim().toLowerCase();
