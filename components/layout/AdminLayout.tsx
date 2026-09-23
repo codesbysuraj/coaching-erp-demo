@@ -106,21 +106,23 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
     <div className="flex h-screen bg-gray-50">
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out \${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
           } lg:translate-x-0`}
       >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
             <h1 className="text-xl font-bold text-gray-900">K Meson Academy</h1>
             <button
+              type="button"
               onClick={() => setIsSidebarOpen(false)}
-              className="lg:hidden text-gray-500 hover:text-gray-700"
+              className="lg:hidden text-gray-500 hover:text-gray-900 p-2 -mr-2 relative z-50"
+              aria-label="Close sidebar"
             >
               <X size={24} />
             </button>
@@ -141,6 +143,7 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
                   <button 
                     onClick={() => {
                       setShowModuleSwitcher(false);
+                      setIsSidebarOpen(false);
                       router.push("/admin");
                     }}
                     className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 \${!isCommerce ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
@@ -150,6 +153,7 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
                   <button 
                     onClick={() => {
                       setShowModuleSwitcher(false);
+                      setIsSidebarOpen(false);
                       router.push("/admin/commerce");
                     }}
                     className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 \${isCommerce ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
