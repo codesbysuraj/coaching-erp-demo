@@ -6,7 +6,7 @@ const COOKIE_NAME = "admin_token";
 // TextEncoder is available in Edge runtime — jose requires a Uint8Array secret
 const getSecret = () =>
   new TextEncoder().encode(
-    process.env.JWT_SECRET || "kmeson-academy-super-secret-jwt-key-2024"
+    process.env.JWT_SECRET || "coaching-institute-demo-secret-key-2025"
   );
 
 // Routes that don't require authentication

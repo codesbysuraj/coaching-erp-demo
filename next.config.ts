@@ -1,10 +1,20 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  // Keep Turbopack scoped to this project and make the path absolute so Next
-  // does not warn or infer the wrong workspace root.
+  outputFileTracingRoot: path.resolve(__dirname),
   turbopack: {
-    root: process.cwd(),
+    root: path.resolve(__dirname),
+  },
+  webpack: (config) => {
+    config.context = path.resolve(__dirname);
+    config.resolve = config.resolve || {};
+    config.resolve.modules = [
+      path.resolve(__dirname, "node_modules"),
+      "node_modules",
+      ...(config.resolve.modules || []),
+    ];
+    return config;
   },
   images: {
     remotePatterns: [
@@ -14,7 +24,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  allowedDevOrigins: ["192.168.0.106"],
+  allowedDevOrigins: ["192.168.0.106", "192.168.0.107"],
 };
 
 export default nextConfig;

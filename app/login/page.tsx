@@ -47,7 +47,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg">
             <GraduationCap size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">K Meson Academy</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Bright Future Academy</h1>
           <p className="text-gray-500 mt-1 text-sm">Admin Portal</p>
         </div>
 
@@ -74,7 +74,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@kmeson.com"
+                placeholder="admin@brightfuture.example"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               />
             </div>
@@ -131,7 +131,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          &copy; {new Date().getFullYear()} K Meson Academy. All rights reserved.
+          &copy; {new Date().getFullYear()} Bright Future Academy. All rights reserved.
         </p>
       </div>
     </div>

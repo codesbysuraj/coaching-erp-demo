@@ -117,7 +117,7 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
       >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
-            <h1 className="text-xl font-bold text-gray-900">K Meson Academy</h1>
+            <h1 className="text-xl font-bold text-gray-900">Bright Future Academy</h1>
             <button
               type="button"
               onClick={() => setIsSidebarOpen(false)}

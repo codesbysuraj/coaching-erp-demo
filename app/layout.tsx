@@ -6,8 +6,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "K Meson Academy - Student Management System",
-  description: "Professional coaching institute management system",
+  title: "Bright Future Academy – Student Management System",
+  description: "Smart Coaching Institute Management",
 };
 
 export default function RootLayout({

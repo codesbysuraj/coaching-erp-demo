@@ -11,15 +11,16 @@ export async function GET() {
   try {
     const passwordHash = await bcrypt.hash("Admin@1234", 12);
 
-    await withRetry(() => prisma.$executeRaw`DELETE FROM "Admin" WHERE email = 'admin@kmeson.com'`);
+    const seedEmail = process.env.ADMIN_SEED_EMAIL || "admin@brightfuture.example";
+    await withRetry(() => prisma.$executeRaw`DELETE FROM "Admin" WHERE email = ${seedEmail} OR email = 'admin@kmeson.com'`);
     await withRetry(() => prisma.$executeRaw`
       INSERT INTO "Admin" (name, email, "passwordHash", role, "createdAt")
-      VALUES ('Admin', 'admin@kmeson.com', ${passwordHash}, 'SUPER_ADMIN', NOW())
+      VALUES ('Admin', ${seedEmail}, ${passwordHash}, 'SUPER_ADMIN', NOW())
     `);
 
     return NextResponse.json({
       success: true,
-      message: "Super Admin reseeded. Email: admin@kmeson.com, Password: Admin@1234, Role: SUPER_ADMIN",
+      message: `Super Admin reseeded. Email: ${seedEmail}, Password: Admin@1234, Role: SUPER_ADMIN`,
     });
   } catch (e) {
     console.error("[seed-admin]", e);

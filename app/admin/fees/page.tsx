@@ -93,7 +93,7 @@ function printReceipt(fee: Fee, feeHistory: Fee[]) {
     <body>
       <div class="header">
         <div class="logo-area">
-          <h1>K Meson Academy</h1>
+          <h1>Bright Future Academy</h1>
           <p>Official Payment Receipt</p>
         </div>
         <div style="text-align:right">
@@ -138,7 +138,7 @@ function printReceipt(fee: Fee, feeHistory: Fee[]) {
       <div class="footer">
         <div class="stamp">✓ PAYMENT RECEIVED</div>
         <div class="sign-area">
-          <h4>K Meson Academy</h4>
+          <h4>Bright Future Academy</h4>
           <div class="line"></div>
           <p>Authorised Signatory</p>
         </div>
